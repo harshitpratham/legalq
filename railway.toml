@@ -1,0 +1,8 @@
+[build]
+builder = "nixpacks"
+buildCommand = "npm run db:generate && npm run build"
+
+[deploy]
+startCommand = "npx prisma migrate deploy && npm start"
+healthcheckPath = "/api/webhooks/zapier"
+healthcheckTimeout = 120

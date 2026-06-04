@@ -1,0 +1,139 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum TicketStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  IN_REVIEW
+  COMPLETE
+}
+
+enum TicketCategory {
+  AGREEMENT
+  DATA_PROTECTION
+  OTHER
+}
+
+enum Urgency {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum MessageDirection {
+  INBOUND
+  OUTBOUND
+}
+
+enum MessageAuthorType {
+  SYSTEM
+  AGENT
+  STAKEHOLDER
+}
+
+enum AuditEventType {
+  CREATED
+  STATUS_CHANGED
+  COMMENT_ADDED
+  EMAIL_SENT
+  EMAIL_RECEIVED
+  REMINDER_SENT
+  CATEGORY_CHANGED
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String?
+  googleId  String?  @unique
+  image     String?
+  role      String   @default("AGENT")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  assignedTickets Ticket[] @relation("AssignedTickets")
+  messages        Message[]
+  auditEvents     AuditEvent[]
+}
+
+model Ticket {
+  id                      String         @id @default(cuid())
+  title                   String
+  description             String         @db.Text
+  category                TicketCategory @default(OTHER)
+  status                  TicketStatus   @default(NOT_STARTED)
+  urgency                 Urgency        @default(MEDIUM)
+  requesterEmail          String
+  requesterName           String?
+  gmailThreadId           String?
+  gmailMessageId          String?        @unique
+  lastStakeholderUpdateAt DateTime?
+  lastReminderSentAt      DateTime?
+  startedAt               DateTime?
+  completedAt             DateTime?
+  assigneeId              String?
+  assignee                User?          @relation("AssignedTickets", fields: [assigneeId], references: [id])
+  createdAt               DateTime       @default(now())
+  updatedAt               DateTime       @updatedAt
+
+  messages    Message[]
+  attachments Attachment[]
+  auditEvents AuditEvent[]
+
+  @@index([status])
+  @@index([gmailThreadId])
+  @@index([requesterEmail])
+}
+
+model Message {
+  id             String            @id @default(cuid())
+  ticketId       String
+  ticket         Ticket            @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  direction      MessageDirection
+  authorType     MessageAuthorType
+  body           String            @db.Text
+  gmailMessageId String?
+  authorId       String?
+  author         User?             @relation(fields: [authorId], references: [id])
+  createdAt      DateTime          @default(now())
+
+  @@index([ticketId])
+}
+
+model Attachment {
+  id                String   @id @default(cuid())
+  ticketId          String
+  ticket            Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  filename          String
+  mimeType          String?
+  storagePath       String?
+  gmailAttachmentId String?
+  createdAt         DateTime @default(now())
+
+  @@index([ticketId])
+}
+
+model AuditEvent {
+  id        String         @id @default(cuid())
+  ticketId  String
+  ticket    Ticket         @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  type      AuditEventType
+  payload   Json?
+  userId    String?
+  user      User?          @relation(fields: [userId], references: [id])
+  createdAt DateTime       @default(now())
+
+  @@index([ticketId])
+}
+
+model ProcessedEmail {
+  id             String   @id @default(cuid())
+  gmailMessageId String   @unique
+  processedAt    DateTime @default(now())
+}
