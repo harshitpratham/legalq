@@ -130,7 +130,12 @@ Send a test email **to** `GMAIL_INBOX_EMAIL` with subject like “Agreement revi
 Repo: [github.com/harshitpratham/legalq](https://github.com/harshitpratham/legalq)
 
 1. Push this project to GitHub and connect the repo in [Railway](https://railway.app).
-2. Add a **PostgreSQL** plugin; Railway sets `DATABASE_URL` automatically.
+2. **Add PostgreSQL** (critical — without this the app will crash):
+   - In your Railway project → **+ New** → **Database** → **PostgreSQL**
+   - Open your **LegalQ app service** (not the database) → **Variables**
+   - Click **+ New Variable** → **Add Reference**
+   - Select the Postgres service → choose **`DATABASE_URL`**
+   - Railway will set `DATABASE_URL=${{Postgres.DATABASE_URL}}` on your app
 3. Set environment variables from `.env.example` (at minimum `NEXTAUTH_URL`, `NEXTAUTH_SECRET`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `ALLOWED_EMAILS`, `CRON_SECRET`).
 4. Set `NEXTAUTH_URL` to your Railway public URL (e.g. `https://legalq-production.up.railway.app`).
 5. In Google Cloud OAuth redirect URIs, add: `https://YOUR-RAILWAY-URL/api/auth/callback/google`
