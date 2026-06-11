@@ -20,7 +20,9 @@ export function Header() {
         </Link>
         {session?.user && (
           <div className="flex items-center gap-4">
-            <span className="text-sm text-[var(--muted)]">{session.user.email}</span>
+            <span className="text-sm text-[var(--muted)]">
+              {session.user.name ?? session.user.email}
+            </span>
             <button
               type="button"
               onClick={() => signOut({ callbackUrl: "/login" })}

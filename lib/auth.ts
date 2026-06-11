@@ -1,20 +1,38 @@
 import type { NextAuthOptions } from "next-auth";
-import GoogleProvider from "next-auth/providers/google";
+import CredentialsProvider from "next-auth/providers/credentials";
 import { prisma } from "@/lib/db/prisma";
 
-function getAllowedEmails(): string[] {
-  const raw = process.env.ALLOWED_EMAILS ?? "";
-  return raw
-    .split(",")
-    .map((e) => e.trim().toLowerCase())
-    .filter(Boolean);
+function getAuthCredentials() {
+  return {
+    username: process.env.AUTH_USERNAME ?? "admin",
+    password: process.env.AUTH_PASSWORD ?? "legalq",
+    displayName: process.env.AUTH_DISPLAY_NAME ?? "Legal Team",
+  };
 }
 
 export const authOptions: NextAuthOptions = {
+  secret: process.env.NEXTAUTH_SECRET,
   providers: [
-    GoogleProvider({
-      clientId: process.env.GOOGLE_CLIENT_ID!,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+    CredentialsProvider({
+      name: "Credentials",
+      credentials: {
+        username: { label: "Username", type: "text" },
+        password: { label: "Password", type: "password" },
+      },
+      async authorize(credentials) {
+        const { username, password, displayName } = getAuthCredentials();
+        if (
+          credentials?.username === username &&
+          credentials?.password === password
+        ) {
+          return {
+            id: "static-legal-user",
+            name: displayName,
+            email: "legal-team@legalq.internal",
+          };
+        }
+        return null;
+      },
     }),
   ],
   session: { strategy: "jwt" },
@@ -23,19 +41,11 @@ export const authOptions: NextAuthOptions = {
     error: "/login",
   },
   callbacks: {
-    async signIn({ user }) {
-      const allowed = getAllowedEmails();
-      if (allowed.length === 0) return true;
-      const email = user.email?.toLowerCase();
-      return email ? allowed.includes(email) : false;
-    },
-    async jwt({ token, user, account }) {
+    async jwt({ token, user }) {
       if (user) {
         token.id = user.id;
         token.email = user.email;
-      }
-      if (account?.providerAccountId) {
-        token.googleId = account.providerAccountId;
+        token.name = user.name ?? undefined;
       }
       return token;
     },
@@ -43,6 +53,7 @@ export const authOptions: NextAuthOptions = {
       if (session.user) {
         session.user.id = token.id as string;
         session.user.email = token.email as string;
+        session.user.name = token.name as string;
       }
       return session;
     },
@@ -58,12 +69,10 @@ export async function getSessionUser() {
     where: { email: session.user.email },
     update: {
       name: session.user.name ?? undefined,
-      image: session.user.image ?? undefined,
     },
     create: {
       email: session.user.email,
       name: session.user.name ?? undefined,
-      image: session.user.image ?? undefined,
     },
   });
 
