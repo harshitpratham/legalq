@@ -23,14 +23,7 @@ export async function requireAuth() {
   return { error: null, user };
 }
 
-export function verifyCronSecret(request: Request): boolean {
-  const secret = process.env.CRON_SECRET;
-  if (!secret) return process.env.NODE_ENV === "development";
-  const header = request.headers.get("authorization");
-  return header === `Bearer ${secret}`;
-}
-
-/** Zapier / Google Sheets integration — header: Authorization: Bearer <ZAPIER_WEBHOOK_SECRET> */
+/** Zapier intake — header: Authorization: Bearer <ZAPIER_WEBHOOK_SECRET> */
 export function verifyZapierSecret(request: Request): boolean {
   const secret = process.env.ZAPIER_WEBHOOK_SECRET;
   if (!secret) return false;

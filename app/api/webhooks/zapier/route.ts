@@ -32,14 +32,6 @@ function pick(body: Record<string, unknown>, keys: string[]): string | undefined
   return undefined;
 }
 
-/**
- * POST /api/webhooks/zapier
- * Auth: Authorization: Bearer <ZAPIER_WEBHOOK_SECRET>
- *
- * Accepts JSON from Zapier (Google Sheets row). Typical sheet columns map to:
- * title, summary/description, category, urgency, requesterEmail, requesterName,
- * gmailMessageId, gmailThreadId, sheetRowId, externalId
- */
 export async function POST(request: Request) {
   if (!verifyZapierSecret(request)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -105,24 +97,8 @@ export async function POST(request: Request) {
         body.category ?? body.Category ?? body["Category"]
       ),
       urgency: normalizeUrgency(body.urgency ?? body.Urgency ?? body["Urgency"]),
-      gmailMessageId: pick(body, [
-        "gmailMessageId",
-        "gmail_message_id",
-        "message_id",
-        "Message ID",
-      ]),
-      gmailThreadId: pick(body, [
-        "gmailThreadId",
-        "gmail_thread_id",
-        "thread_id",
-        "Thread ID",
-      ]),
       sheetRowId: pick(body, ["sheetRowId", "sheet_row_id", "row_id", "Row ID"]),
       externalId: pick(body, ["externalId", "external_id", "id", "ID"]),
-      notifyRequester:
-        body.notifyRequester === true ||
-        body.notify_requester === true ||
-        body.sendNotification === true,
     });
 
     return NextResponse.json(

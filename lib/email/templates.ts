@@ -1,6 +1,6 @@
 import type { Ticket, TicketStatus } from "@prisma/client";
 
-const SYSTEM_NAME = process.env.SYSTEM_EMAIL_FROM_NAME ?? "Pratham Legal";
+const SYSTEM_NAME = process.env.RESEND_FROM_NAME ?? "Pratham Legal";
 
 export function ticketCreatedEmail(ticket: Ticket): { subject: string; body: string } {
   return {
@@ -48,39 +48,5 @@ Subject: ${ticket.title}
   return {
     subject: `[Legal] Update: ${ticket.title}`,
     body,
-  };
-}
-
-export function reminderEmail(ticket: Ticket): { subject: string; body: string } {
-  return {
-    subject: `[Legal] Status update: ${ticket.title}`,
-    body: `Hello${ticket.requesterName ? ` ${ticket.requesterName}` : ""},
-
-This is a brief update on your legal request (ticket #${ticket.id.slice(-8)}).
-
-Current status: ${ticket.status.replace(/_/g, " ")}
-
-We are still working on your request and will follow up as soon as there is progress.
-
-Thank you,
-${SYSTEM_NAME}`,
-  };
-}
-
-export function agentReplyNotificationEmail(
-  ticket: Ticket,
-  replyPreview: string
-): { subject: string; body: string } {
-  return {
-    subject: `[LegalQ] Stakeholder replied: ${ticket.title}`,
-    body: `A stakeholder has replied on ticket #${ticket.id.slice(-8)}.
-
-From: ${ticket.requesterEmail}
-Subject: ${ticket.title}
-
-Preview:
-${replyPreview.slice(0, 1000)}${replyPreview.length > 1000 ? "..." : ""}
-
-View the ticket in LegalQ to respond.`,
   };
 }

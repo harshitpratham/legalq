@@ -26,15 +26,6 @@ export const URGENCY_LEVELS: { value: Urgency; label: string }[] = [
   { value: "HIGH", label: "High" },
 ];
 
-export type TriageResult = {
-  isLegalRequest: boolean;
-  category: TicketCategory;
-  urgency: Urgency;
-  title: string;
-  summary: string;
-  confidence: number;
-};
-
 export type TransitionPayload = {
   status: TicketStatus;
   comment?: string;

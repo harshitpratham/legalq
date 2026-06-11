@@ -4,7 +4,7 @@ import { SessionProvider } from "@/components/providers/SessionProvider";
 
 export const metadata: Metadata = {
   title: "LegalQ — Pratham Legal Requests",
-  description: "Kanban legal request tracker with Gmail intake and automated notifications",
+  description: "Kanban legal request tracker with Zapier intake and Resend notifications",
 };
 
 export default function RootLayout({
