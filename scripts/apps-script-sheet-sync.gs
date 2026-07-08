@@ -22,7 +22,7 @@
 
 const CONFIG = {
   WEBHOOK_URL: "https://legalq-production.up.railway.app/api/webhooks/sheet-sync",
-  WEBHOOK_SECRET: "PASTE_YOUR_SHEET_WEBHOOK_SECRET_HERE", // same value as Railway SHEET_WEBHOOK_SECRET
+  WEBHOOK_SECRET: "glHuje2N0Og5ehBbITvjSIJtSNaDSddg9mQKs2N7", // must match SHEET_WEBHOOK_SECRET on Railway
   SHEET_NAME: "", // leave blank to use the first sheet/tab
   SYNCED_COLUMN_NAME: "synced_at",
 };
