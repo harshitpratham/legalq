@@ -22,6 +22,9 @@ export function Header() {
           <div className="flex items-center gap-4">
             <span className="text-sm text-[var(--muted)]">
               {session.user.name ?? session.user.email}
+              <span className="ml-2 rounded-full bg-slate-100 px-2 py-0.5 text-xs capitalize">
+                {session.user.role}
+              </span>
             </span>
             <button
               type="button"

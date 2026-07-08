@@ -1,7 +1,54 @@
 import type { Ticket, TicketStatus } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
-import { sendEmail } from "@/lib/email/resend";
+import { findMatchingTicket } from "@/lib/ai/threadMatch";
+import { sendEmail } from "@/lib/email/gmail";
 import { statusUpdateEmail, ticketCreatedEmail } from "@/lib/email/templates";
+
+export async function appendStakeholderMessage(params: {
+  ticketId: string;
+  body: string;
+  sheetRowId?: string | null;
+}) {
+  const ticket = await prisma.ticket.findUnique({ where: { id: params.ticketId } });
+  if (!ticket) throw new Error("Ticket not found");
+
+  await prisma.message.create({
+    data: {
+      ticketId: ticket.id,
+      direction: "INBOUND",
+      authorType: "STAKEHOLDER",
+      body: params.body,
+    },
+  });
+
+  await prisma.auditEvent.create({
+    data: {
+      ticketId: ticket.id,
+      type: "EMAIL_RECEIVED",
+      payload: { sheetRowId: params.sheetRowId, matchedViaAI: true },
+    },
+  });
+
+  let updated = ticket;
+  if (ticket.status === "IN_REVIEW") {
+    updated = await prisma.ticket.update({
+      where: { id: ticket.id },
+      data: {
+        status: "IN_PROGRESS",
+        startedAt: ticket.startedAt ?? new Date(),
+      },
+    });
+    await prisma.auditEvent.create({
+      data: {
+        ticketId: ticket.id,
+        type: "STATUS_CHANGED",
+        payload: { from: "IN_REVIEW", to: "IN_PROGRESS", reason: "stakeholder_reply_ai_match" },
+      },
+    });
+  }
+
+  return updated;
+}
 
 export async function createTicketFromSheet(params: {
   title: string;
@@ -13,16 +60,64 @@ export async function createTicketFromSheet(params: {
   sheetRowId?: string | null;
   externalId?: string | null;
   sendWelcomeEmail?: boolean;
-}) {
+}): Promise<{ ticket: Ticket; created: boolean; matched?: boolean }> {
   const dedupeId =
     (params.externalId ? `sheet-${params.externalId}` : null) ??
     (params.sheetRowId ? `sheet-row-${params.sheetRowId}` : null);
 
   if (dedupeId) {
+    const processed = await prisma.processedEmail.findUnique({
+      where: { gmailMessageId: dedupeId },
+    });
+    if (processed) {
+      if (params.sheetRowId) {
+        const priorAppend = await prisma.auditEvent.findFirst({
+          where: {
+            type: "EMAIL_RECEIVED",
+            payload: { path: ["sheetRowId"], equals: params.sheetRowId },
+          },
+          include: { ticket: true },
+          orderBy: { createdAt: "desc" },
+        });
+        if (priorAppend?.ticket) {
+          return { ticket: priorAppend.ticket, created: false, matched: true };
+        }
+      }
+
+      const existing = await prisma.ticket.findUnique({
+        where: { gmailMessageId: dedupeId },
+      });
+      if (existing) return { ticket: existing, created: false };
+    }
+
     const existing = await prisma.ticket.findUnique({
       where: { gmailMessageId: dedupeId },
     });
     if (existing) return { ticket: existing, created: false };
+  }
+
+  const match = await findMatchingTicket({
+    title: params.title,
+    description: params.description,
+    requesterEmail: params.requesterEmail,
+  });
+
+  if (match.matchedTicketId) {
+    const ticket = await appendStakeholderMessage({
+      ticketId: match.matchedTicketId,
+      body: params.description,
+      sheetRowId: params.sheetRowId,
+    });
+
+    if (dedupeId) {
+      await prisma.processedEmail.upsert({
+        where: { gmailMessageId: dedupeId },
+        create: { gmailMessageId: dedupeId },
+        update: { processedAt: new Date() },
+      });
+    }
+
+    return { ticket, created: false, matched: true };
   }
 
   const ticket = await prisma.ticket.create({
@@ -59,7 +154,15 @@ export async function createTicketFromSheet(params: {
     await sendTicketCreatedEmail(ticket);
   }
 
-  return { ticket, created: true };
+  if (dedupeId) {
+    await prisma.processedEmail.upsert({
+      where: { gmailMessageId: dedupeId },
+      create: { gmailMessageId: dedupeId },
+      update: { processedAt: new Date() },
+    });
+  }
+
+  return { ticket, created: true, matched: false };
 }
 
 async function sendTicketCreatedEmail(ticket: Ticket) {
@@ -84,7 +187,7 @@ async function sendTicketCreatedEmail(ticket: Ticket) {
         data: {
           ticketId: ticket.id,
           type: "EMAIL_SENT",
-          payload: { kind: "ticket_created", resendId: sent.id },
+          payload: { kind: "ticket_created", gmailMessageId: sent.id },
         },
       });
     }
@@ -186,7 +289,7 @@ export async function sendStatusNotification(
         data: {
           ticketId: ticket.id,
           type: "EMAIL_SENT",
-          payload: { kind: "status_update", status, resendId: sent.id },
+          payload: { kind: "status_update", status, gmailMessageId: sent.id },
         },
       });
     }

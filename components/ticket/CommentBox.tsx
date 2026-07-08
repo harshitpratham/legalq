@@ -53,7 +53,7 @@ export function CommentBox({
           checked={sendToStakeholder}
           onChange={(e) => setSendToStakeholder(e.target.checked)}
         />
-        Email requester via Resend
+        Email requester via Gmail
       </label>
       <button
         type="submit"

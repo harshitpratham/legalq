@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { useSession } from "next-auth/react";
 import type { Ticket, TicketStatus, Message, User, Attachment, AuditEvent } from "@prisma/client";
 import { TICKET_CATEGORIES, TICKET_STATUSES, URGENCY_LEVELS } from "@/lib/types";
 import { Badge } from "@/components/ui/Badge";
@@ -17,6 +18,8 @@ type TicketFull = Ticket & {
 };
 
 export function TicketDetail({ id }: { id: string }) {
+  const { data: session } = useSession();
+  const isAdmin = session?.user?.role === "admin";
   const [ticket, setTicket] = useState<TicketFull | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -124,36 +127,44 @@ export function TicketDetail({ id }: { id: string }) {
         </dl>
       </div>
 
-      <div className="rounded-xl border border-[var(--border)] bg-white p-4">
-        <h2 className="mb-3 font-medium">Move status</h2>
-        <div className="flex flex-wrap gap-2">
-          {TICKET_STATUSES.map(({ value, label }) => (
-            <button
-              key={value}
-              type="button"
-              disabled={ticket.status === value}
-              onClick={() => changeStatus(value)}
-              className={`rounded-lg border px-3 py-1.5 text-sm ${
-                ticket.status === value
-                  ? "border-[var(--primary)] bg-[var(--primary)] text-white"
-                  : "border-[var(--border)] hover:bg-slate-50"
-              } disabled:cursor-default`}
-            >
-              {label}
-            </button>
-          ))}
+      {isAdmin ? (
+        <div className="rounded-xl border border-[var(--border)] bg-white p-4">
+          <h2 className="mb-3 font-medium">Move status</h2>
+          <div className="flex flex-wrap gap-2">
+            {TICKET_STATUSES.map(({ value, label }) => (
+              <button
+                key={value}
+                type="button"
+                disabled={ticket.status === value}
+                onClick={() => changeStatus(value)}
+                className={`rounded-lg border px-3 py-1.5 text-sm ${
+                  ticket.status === value
+                    ? "border-[var(--primary)] bg-[var(--primary)] text-white"
+                    : "border-[var(--border)] hover:bg-slate-50"
+                } disabled:cursor-default`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
         </div>
-      </div>
+      ) : (
+        <div className="rounded-xl border border-[var(--border)] bg-slate-50 p-4 text-sm text-[var(--muted)]">
+          View-only access. Ask an admin to update ticket status or email the requester.
+        </div>
+      )}
 
       <div className="grid gap-6 lg:grid-cols-2">
         <div className="rounded-xl border border-[var(--border)] bg-white p-4">
           <h2 className="mb-3 font-medium">Conversation</h2>
           <Thread messages={ticket.messages} />
         </div>
-        <div className="rounded-xl border border-[var(--border)] bg-white p-4">
-          <h2 className="mb-3 font-medium">Add comment</h2>
-          <CommentBox ticketId={id} onSent={fetchTicket} />
-        </div>
+        {isAdmin && (
+          <div className="rounded-xl border border-[var(--border)] bg-white p-4">
+            <h2 className="mb-3 font-medium">Add comment</h2>
+            <CommentBox ticketId={id} onSent={fetchTicket} />
+          </div>
+        )}
       </div>
     </div>
   );

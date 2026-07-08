@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import type { TicketStatus } from "@prisma/client";
-import { requireAuth } from "@/lib/api";
+import { requireAdmin } from "@/lib/api";
 import { transitionTicket } from "@/lib/tickets/service";
 
 const VALID_STATUSES: TicketStatus[] = [
@@ -14,7 +14,7 @@ export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { error, user } = await requireAuth();
+  const { error, user } = await requireAdmin();
   if (error) return error;
 
   const { id } = await params;

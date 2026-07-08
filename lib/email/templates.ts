@@ -1,6 +1,6 @@
 import type { Ticket, TicketStatus } from "@prisma/client";
 
-const SYSTEM_NAME = process.env.RESEND_FROM_NAME ?? "Pratham Legal";
+const SYSTEM_NAME = process.env.GMAIL_FROM_NAME ?? "Pratham Legal";
 
 export function ticketCreatedEmail(ticket: Ticket): { subject: string; body: string } {
   return {

@@ -1,14 +1,7 @@
 import type { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { prisma } from "@/lib/db/prisma";
-
-function getAuthCredentials() {
-  return {
-    username: process.env.AUTH_USERNAME ?? "admin",
-    password: process.env.AUTH_PASSWORD ?? "legalq",
-    displayName: process.env.AUTH_DISPLAY_NAME ?? "Legal Team",
-  };
-}
+import { findAuthUser, toDbRole } from "@/lib/auth/users";
 
 export const authOptions: NextAuthOptions = {
   secret: process.env.NEXTAUTH_SECRET,
@@ -20,18 +13,18 @@ export const authOptions: NextAuthOptions = {
         password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
-        const { username, password, displayName } = getAuthCredentials();
-        if (
-          credentials?.username === username &&
-          credentials?.password === password
-        ) {
-          return {
-            id: "static-legal-user",
-            name: displayName,
-            email: "legal-team@legalq.internal",
-          };
-        }
-        return null;
+        const match = findAuthUser(
+          credentials?.username ?? "",
+          credentials?.password ?? ""
+        );
+        if (!match) return null;
+
+        return {
+          id: `auth-${match.username}`,
+          name: match.name,
+          email: match.email,
+          role: match.role,
+        };
       },
     }),
   ],
@@ -46,6 +39,7 @@ export const authOptions: NextAuthOptions = {
         token.id = user.id;
         token.email = user.email;
         token.name = user.name ?? undefined;
+        token.role = user.role;
       }
       return token;
     },
@@ -54,6 +48,7 @@ export const authOptions: NextAuthOptions = {
         session.user.id = token.id as string;
         session.user.email = token.email as string;
         session.user.name = token.name as string;
+        session.user.role = token.role as "admin" | "user";
       }
       return session;
     },
@@ -69,10 +64,12 @@ export async function getSessionUser() {
     where: { email: session.user.email },
     update: {
       name: session.user.name ?? undefined,
+      role: toDbRole(session.user.role),
     },
     create: {
       email: session.user.email,
       name: session.user.name ?? undefined,
+      role: toDbRole(session.user.role),
     },
   });
 

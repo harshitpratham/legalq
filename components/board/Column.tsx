@@ -8,16 +8,19 @@ export function Column({
   status,
   tickets,
   onDrop,
+  canEdit = true,
 }: {
   title: string;
   status: TicketStatus;
   tickets: (Ticket & { _count?: { messages: number } })[];
   onDrop: (ticketId: string, newStatus: TicketStatus) => void;
+  canEdit?: boolean;
 }) {
   return (
     <div
       className="flex min-h-[400px] flex-1 flex-col rounded-xl border border-[var(--border)] bg-slate-50/80"
       onDragOver={(e) => {
+        if (!canEdit) return;
         e.preventDefault();
         e.currentTarget.classList.add("ring-2", "ring-[var(--primary)]");
       }}
@@ -25,6 +28,7 @@ export function Column({
         e.currentTarget.classList.remove("ring-2", "ring-[var(--primary)]");
       }}
       onDrop={(e) => {
+        if (!canEdit) return;
         e.preventDefault();
         e.currentTarget.classList.remove("ring-2", "ring-[var(--primary)]");
         const ticketId = e.dataTransfer.getData("ticketId");
@@ -39,11 +43,12 @@ export function Column({
         {tickets.map((ticket) => (
           <div
             key={ticket.id}
-            draggable
+            draggable={canEdit}
             onDragStart={(e) => {
+              if (!canEdit) return;
               e.dataTransfer.setData("ticketId", ticket.id);
             }}
-            className="cursor-grab active:cursor-grabbing"
+            className={canEdit ? "cursor-grab active:cursor-grabbing" : ""}
           >
             <TicketCard ticket={ticket} />
           </div>

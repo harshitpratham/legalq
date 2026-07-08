@@ -1,11 +1,14 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useSession } from "next-auth/react";
 import type { Ticket, TicketStatus } from "@prisma/client";
 import { TICKET_STATUSES } from "@/lib/types";
 import { Column } from "./Column";
 
 export function KanbanBoard() {
+  const { data: session } = useSession();
+  const isAdmin = session?.user?.role === "admin";
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -29,6 +32,7 @@ export function KanbanBoard() {
   }, [fetchTickets]);
 
   const handleDrop = async (ticketId: string, newStatus: TicketStatus) => {
+    if (!isAdmin) return;
     const ticket = tickets.find((t) => t.id === ticketId);
     if (!ticket || ticket.status === newStatus) return;
 
@@ -96,6 +100,7 @@ export function KanbanBoard() {
           status={value}
           tickets={tickets.filter((t) => t.status === value)}
           onDrop={handleDrop}
+          canEdit={isAdmin}
         />
       ))}
     </div>

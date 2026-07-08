@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { toDbRole } from "@/lib/auth/users";
 
 export async function requireAuth() {
   const session = await getServerSession(authOptions);
@@ -13,14 +14,29 @@ export async function requireAuth() {
     update: {
       name: session.user.name ?? undefined,
       image: session.user.image ?? undefined,
+      role: toDbRole(session.user.role),
     },
     create: {
       email: session.user.email,
       name: session.user.name ?? undefined,
       image: session.user.image ?? undefined,
+      role: toDbRole(session.user.role),
     },
   });
-  return { error: null, user };
+  return { error: null, user, role: session.user.role };
+}
+
+export async function requireAdmin() {
+  const auth = await requireAuth();
+  if (auth.error) return auth;
+  if (auth.role !== "admin") {
+    return {
+      error: NextResponse.json({ error: "Forbidden" }, { status: 403 }),
+      user: null,
+      role: auth.role,
+    };
+  }
+  return auth;
 }
 
 /** Google Sheet Apps Script intake — header: Authorization: Bearer <SHEET_WEBHOOK_SECRET> */

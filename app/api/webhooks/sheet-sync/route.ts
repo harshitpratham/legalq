@@ -112,6 +112,7 @@ export async function POST(request: Request) {
       {
         ok: true,
         created: result.created,
+        matched: result.matched ?? false,
         ticket: {
           id: result.ticket.id,
           title: result.ticket.title,
