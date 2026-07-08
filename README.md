@@ -38,7 +38,19 @@ RESEND_FROM_NAME=Pratham Legal
 
 4. Deploy — migrations run automatically on start
 
-## Zapier setup
+## Sheet intake (Apps Script — no Zapier, no billing)
+
+Use [`scripts/apps-script-sheet-sync.gs`](scripts/apps-script-sheet-sync.gs) to push new legal rows from your Google Sheet straight to LegalQ, with zero Google Cloud billing required.
+
+1. Open the Sheet → **Extensions → Apps Script**
+2. Paste the contents of `scripts/apps-script-sheet-sync.gs`
+3. Update `CONFIG.WEBHOOK_SECRET` to match `ZAPIER_WEBHOOK_SECRET` on Railway
+4. Run `setupTrigger` once (Run ▶) and approve the permission prompt
+5. Done — it runs every 5 minutes automatically and syncs any row with `isLegalRequest = TRUE`
+
+The script tracks synced rows in a `synced_at` column it adds automatically, and LegalQ also dedupes by `sheetRowId`, so re-runs are safe.
+
+### Zapier alternative (if you prefer it)
 
 **Trigger:** Google Sheets → New Spreadsheet Row (filter `isLegalRequest` = true)
 
