@@ -13,13 +13,26 @@ function getFromAddress() {
   };
 }
 
+function normalizePrivateKey(key: string): string {
+  const trimmed = key.replace(/\\n/g, "\n").trim();
+  if (trimmed.includes("BEGIN PRIVATE KEY")) {
+    return trimmed;
+  }
+  const body = trimmed.replace(/\s+/g, "");
+  const lines = body.match(/.{1,64}/g) ?? [body];
+  return `-----BEGIN PRIVATE KEY-----\n${lines.join("\n")}\n-----END PRIVATE KEY-----\n`;
+}
+
 function getServiceAccountCreds(): { clientEmail: string; privateKey: string } | null {
   const json = process.env.GOOGLE_SERVICE_ACCOUNT_JSON;
   if (json) {
     try {
       const parsed = JSON.parse(json) as { client_email?: string; private_key?: string };
       if (parsed.client_email && parsed.private_key) {
-        return { clientEmail: parsed.client_email, privateKey: parsed.private_key };
+        return {
+          clientEmail: parsed.client_email,
+          privateKey: normalizePrivateKey(parsed.private_key),
+        };
       }
     } catch {
       console.error("Invalid GOOGLE_SERVICE_ACCOUNT_JSON");
@@ -27,9 +40,9 @@ function getServiceAccountCreds(): { clientEmail: string; privateKey: string } |
   }
 
   const email = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
-  const key = process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY?.replace(/\\n/g, "\n");
+  const key = process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY;
   if (email && key) {
-    return { clientEmail: email, privateKey: key };
+    return { clientEmail: email, privateKey: normalizePrivateKey(key) };
   }
 
   return null;

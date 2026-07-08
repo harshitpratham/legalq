@@ -64,7 +64,7 @@ export async function findMatchingTicket(params: {
       body: JSON.stringify({
         model,
         temperature: 0,
-        max_tokens: 256,
+        max_completion_tokens: 256,
         reasoning_effort: "none",
         messages: [
           {
