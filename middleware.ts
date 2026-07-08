@@ -9,6 +9,6 @@ export const config = {
     "/board/:path*",
     "/ticket/:path*",
     "/api/tickets/:path*",
-    // /api/webhooks/* is public (uses ZAPIER_WEBHOOK_SECRET instead)
+    // /api/webhooks/* is public (uses SHEET_WEBHOOK_SECRET instead)
   ],
 };

@@ -1,20 +1,20 @@
 # LegalQ
 
-Kanban legal request tracker. Legal emails are triaged externally (Google Sheet), pushed via **Zapier** into LegalQ, and the legal team manages tickets on a simple board. Status changes email requesters via **Resend**.
+Kanban legal request tracker. Legal emails are triaged externally (Google Sheet), pushed via a **Google Apps Script** into LegalQ (no Zapier), and the legal team manages tickets on a simple board. Status changes email requesters via **Resend**.
 
 ## Flow
 
 ```
-Legal email → (your Sheet sync) → Google Sheet → Zapier → POST /api/webhooks/zapier → Kanban board
-                                                                                              ↓
-Legal team moves cards → Resend email to requester
+Legal email → (your Sheet sync) → Google Sheet → Apps Script (5 min timer) → POST /api/webhooks/sheet-sync → Kanban board
+                                                                                                                      ↓
+                                                                        Legal team moves cards → Resend email to requester
 ```
 
 ## Features
 
 - Static username/password login
 - Four-column Kanban: Not Started → In Progress → In Review → Complete
-- Zapier webhook for ticket intake from Google Sheet
+- Google Apps Script webhook for ticket intake from Google Sheet (free, no Zapier, no GCP billing)
 - Resend notifications on status change and optional comments
 
 ## Railway deploy
@@ -30,7 +30,7 @@ NEXTAUTH_SECRET=<random>
 AUTH_USERNAME=admin
 AUTH_PASSWORD=<strong-password>
 AUTH_DISPLAY_NAME=Legal Team
-ZAPIER_WEBHOOK_SECRET=<random>
+SHEET_WEBHOOK_SECRET=<random>
 RESEND_API_KEY=re_...
 RESEND_FROM_EMAIL=legal@aidigest.nextayari.com
 RESEND_FROM_NAME=Pratham Legal
@@ -38,28 +38,17 @@ RESEND_FROM_NAME=Pratham Legal
 
 4. Deploy — migrations run automatically on start
 
-## Sheet intake (Apps Script — no Zapier, no billing)
+## Sheet intake (Apps Script)
 
-Use [`scripts/apps-script-sheet-sync.gs`](scripts/apps-script-sheet-sync.gs) to push new legal rows from your Google Sheet straight to LegalQ, with zero Google Cloud billing required.
+Use [`scripts/apps-script-sheet-sync.gs`](scripts/apps-script-sheet-sync.gs) to push new legal rows from your Google Sheet straight to LegalQ — free, runs on your Google account, no Zapier and no Google Cloud billing required.
 
 1. Open the Sheet → **Extensions → Apps Script**
 2. Paste the contents of `scripts/apps-script-sheet-sync.gs`
-3. Update `CONFIG.WEBHOOK_SECRET` to match `ZAPIER_WEBHOOK_SECRET` on Railway
+3. Update `CONFIG.WEBHOOK_SECRET` to match `SHEET_WEBHOOK_SECRET` on Railway
 4. Run `setupTrigger` once (Run ▶) and approve the permission prompt
 5. Done — it runs every 5 minutes automatically and syncs any row with `isLegalRequest = TRUE`
 
 The script tracks synced rows in a `synced_at` column it adds automatically, and LegalQ also dedupes by `sheetRowId`, so re-runs are safe.
-
-### Zapier alternative (if you prefer it)
-
-**Trigger:** Google Sheets → New Spreadsheet Row (filter `isLegalRequest` = true)
-
-**Action:** Webhooks by Zapier → POST
-
-- URL: `https://legalq-production.up.railway.app/api/webhooks/zapier`
-- Header: `Authorization: ` `Bearer YOUR_ZAPIER_WEBHOOK_SECRET`
-- Payload type: **Json**
-- Body fields: `sheetRowId`, `title`, `description` (from `summary`), `requesterEmail` (from `from`), `category`, `urgency`, `requesterName`, `isLegalRequest`
 
 ## Resend setup
 
@@ -80,7 +69,7 @@ npm run dev
 ## API
 
 - `GET /api/health` — liveness check
-- `GET /api/webhooks/zapier` — webhook info
-- `POST /api/webhooks/zapier` — Zapier intake (Bearer auth)
+- `GET /api/webhooks/sheet-sync` — webhook info
+- `POST /api/webhooks/sheet-sync` — Sheet intake (Bearer auth, called by Apps Script)
 - `GET /api/tickets` — list tickets (login required)
 - `POST /api/tickets/[id]/transition` — move status (login required)

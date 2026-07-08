@@ -23,9 +23,9 @@ export async function requireAuth() {
   return { error: null, user };
 }
 
-/** Zapier intake — header: Authorization: Bearer <ZAPIER_WEBHOOK_SECRET> */
-export function verifyZapierSecret(request: Request): boolean {
-  const secret = process.env.ZAPIER_WEBHOOK_SECRET;
+/** Google Sheet Apps Script intake — header: Authorization: Bearer <SHEET_WEBHOOK_SECRET> */
+export function verifySheetWebhookSecret(request: Request): boolean {
+  const secret = process.env.SHEET_WEBHOOK_SECRET;
   if (!secret) return false;
   const auth = request.headers.get("authorization");
   if (auth === `Bearer ${secret}`) return true;

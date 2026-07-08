@@ -1,9 +1,9 @@
 /**
  * LegalQ — Google Sheet → Webhook sync (Apps Script)
  *
- * Replaces Zapier. Bind this script to the Google Sheet that has
- * legal rows (isLegalRequest = TRUE), and it will POST new rows to
- * the LegalQ webhook on a timer.
+ * No Zapier. Bind this script to the Google Sheet that has legal
+ * rows (isLegalRequest = TRUE), and it will POST new rows directly
+ * to the LegalQ webhook on a timer.
  *
  * SETUP:
  *   1. Open the Sheet → Extensions → Apps Script
@@ -21,8 +21,8 @@
  */
 
 const CONFIG = {
-  WEBHOOK_URL: "https://legalq-production.up.railway.app/api/webhooks/zapier",
-  WEBHOOK_SECRET: "PASTE_YOUR_ZAPIER_WEBHOOK_SECRET_HERE", // same value as Railway ZAPIER_WEBHOOK_SECRET
+  WEBHOOK_URL: "https://legalq-production.up.railway.app/api/webhooks/sheet-sync",
+  WEBHOOK_SECRET: "PASTE_YOUR_SHEET_WEBHOOK_SECRET_HERE", // same value as Railway SHEET_WEBHOOK_SECRET
   SHEET_NAME: "", // leave blank to use the first sheet/tab
   SYNCED_COLUMN_NAME: "synced_at",
 };

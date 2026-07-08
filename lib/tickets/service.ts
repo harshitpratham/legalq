@@ -3,7 +3,7 @@ import { prisma } from "@/lib/db/prisma";
 import { sendEmail } from "@/lib/email/resend";
 import { statusUpdateEmail, ticketCreatedEmail } from "@/lib/email/templates";
 
-export async function createTicketFromZapier(params: {
+export async function createTicketFromSheet(params: {
   title: string;
   description: string;
   category: Ticket["category"];
@@ -46,7 +46,7 @@ export async function createTicketFromZapier(params: {
         create: {
           type: "CREATED",
           payload: {
-            source: "zapier",
+            source: "sheet",
             sheetRowId: params.sheetRowId,
             externalId: params.externalId,
           },

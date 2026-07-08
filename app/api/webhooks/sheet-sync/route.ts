@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import type { TicketCategory, Urgency } from "@prisma/client";
-import { verifyZapierSecret } from "@/lib/api";
-import { createTicketFromZapier } from "@/lib/tickets/service";
+import { verifySheetWebhookSecret } from "@/lib/api";
+import { createTicketFromSheet } from "@/lib/tickets/service";
 
 const CATEGORIES: TicketCategory[] = ["AGREEMENT", "DATA_PROTECTION", "OTHER"];
 const URGENCIES: Urgency[] = ["LOW", "MEDIUM", "HIGH"];
@@ -32,8 +32,15 @@ function pick(body: Record<string, unknown>, keys: string[]): string | undefined
   return undefined;
 }
 
+/**
+ * POST /api/webhooks/sheet-sync
+ * Auth: Authorization: Bearer <SHEET_WEBHOOK_SECRET>
+ *
+ * Called by the Apps Script bound to the Google Sheet
+ * (scripts/apps-script-sheet-sync.gs) — no Zapier involved.
+ */
 export async function POST(request: Request) {
-  if (!verifyZapierSecret(request)) {
+  if (!verifySheetWebhookSecret(request)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -82,7 +89,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const result = await createTicketFromZapier({
+    const result = await createTicketFromSheet({
       title,
       description,
       requesterEmail,
@@ -116,7 +123,7 @@ export async function POST(request: Request) {
       { status: result.created ? 201 : 200 }
     );
   } catch (err) {
-    console.error("Zapier webhook error:", err);
+    console.error("Sheet sync webhook error:", err);
     return NextResponse.json(
       { error: err instanceof Error ? err.message : "Failed to create ticket" },
       { status: 500 }
@@ -127,8 +134,9 @@ export async function POST(request: Request) {
 export async function GET() {
   return NextResponse.json({
     ok: true,
-    endpoint: "POST /api/webhooks/zapier",
-    auth: "Authorization: Bearer <ZAPIER_WEBHOOK_SECRET>",
+    endpoint: "POST /api/webhooks/sheet-sync",
+    auth: "Authorization: Bearer <SHEET_WEBHOOK_SECRET>",
     requiredFields: ["title", "description|summary", "requesterEmail|from"],
+    source: "Google Apps Script (see scripts/apps-script-sheet-sync.gs)",
   });
 }
