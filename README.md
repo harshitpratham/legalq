@@ -1,21 +1,24 @@
 # LegalQ
 
-Kanban legal request tracker. Legal emails are triaged externally (Google Sheet), pushed via a **Google Apps Script** into LegalQ (no Zapier), and the legal team manages tickets on a simple board. Status changes email requesters via **Gmail** (`legal@prathaminternational.org`).
+Kanban legal request tracker. Inbound legal email arrives at `legal@prathaminternational.org`, is pushed to LegalQ via **Gmail Pub/Sub**, and mapped to tickets on a Kanban board. The legal team manages requests; status changes and comments email requesters via **Gmail** in the same thread.
 
 ## Flow
 
 ```
-Legal email → (your Sheet sync) → Google Sheet → Apps Script (5 min timer) → POST /api/webhooks/sheet-sync → Kanban board
-                                                                                                                      ↓
-                                                                        Legal team moves cards → Gmail email to requester
+Requester email → legal@ inbox → Gmail Pub/Sub → POST /api/webhooks/gmail → Kanban board
+                                                                                    ↓
+                                                          Legal team actions → Gmail reply (same thread)
 ```
+
+Sheet intake via Apps Script remains available as an optional fallback (`/api/webhooks/sheet-sync`).
 
 ## Features
 
 - Static username/password login with **admin** and **user** roles
 - Four-column Kanban: Not Started → In Progress → In Review → Complete
-- Google Apps Script webhook for ticket intake from Google Sheet (free, no Zapier, no GCP billing)
-- Gmail notifications on status change and optional comments
+- **Gmail Pub/Sub** real-time inbound intake (no Sheet required)
+- Gmail thread matching by `gmailThreadId`, with OpenAI fallback for same-requester follow-ups
+- Gmail outbound notifications on status change and optional comments (threaded replies)
 
 ## Railway deploy
 
@@ -27,129 +30,75 @@ Legal email → (your Sheet sync) → Google Sheet → Apps Script (5 min timer)
 DATABASE_URL=${{Postgres.DATABASE_URL}}
 NEXTAUTH_URL=https://legalq-production.up.railway.app
 NEXTAUTH_SECRET=<random>
-AUTH_USERNAME=admin
-AUTH_PASSWORD=<strong-admin-password>
-AUTH_DISPLAY_NAME=Legal Admin
-AUTH_USER_USERNAME=user
-AUTH_USER_PASSWORD=<strong-user-password>
-AUTH_USER_DISPLAY_NAME=Legal Viewer
-SHEET_WEBHOOK_SECRET=<random>
+AUTH_USERS=[{"username":"admin","password":"<admin-pass>","role":"admin","name":"Legal Admin"},{"username":"user","password":"<user-pass>","role":"user","name":"Legal Viewer"}]
 GMAIL_SEND_AS=legal@prathaminternational.org
+GMAIL_INBOX_EMAIL=legal@prathaminternational.org
 GMAIL_FROM_NAME=Pratham Legal
+GMAIL_PUBSUB_TOPIC=projects/legalq-498409/topics/legalq-gmail-inbox
+GMAIL_PUSH_ENDPOINT=https://legalq-production.up.railway.app/api/webhooks/gmail
+CRON_SECRET=<random>
 GOOGLE_SERVICE_ACCOUNT_JSON=<service-account-json>
 OPENAI_API_KEY=<from-openai-platform>
 OPENAI_MODEL=gpt-5.4-mini
 ```
 
 4. Deploy — migrations run automatically on start
+5. Register Gmail watch: `POST /api/cron/gmail-watch` with `Authorization: Bearer <CRON_SECRET>`
+6. Add a **Railway Cron Job** calling that endpoint every 6 days (watch expires after ~7 days)
 
-## Users and roles
+## Gmail inbound setup (Pub/Sub)
 
-LegalQ uses simple username/password auth (no Google login).
+### 1. GCP Pub/Sub + Gmail watch
 
-| Role | Access |
-|------|--------|
-| **admin** | View board, move tickets, add comments, email requesters |
-| **user** | View board and ticket details only (read-only) |
-
-Configure accounts with `AUTH_USERS` (JSON) on Railway:
-
-```env
-AUTH_USERS=[{"username":"admin","password":"<admin-pass>","role":"admin","name":"Legal Admin"},{"username":"user","password":"<user-pass>","role":"user","name":"Legal Viewer"}]
+```bash
+bash scripts/setup-gmail-pubsub.sh
 ```
 
-If `AUTH_USERS` is not set, LegalQ falls back to `AUTH_USERNAME` / `AUTH_PASSWORD` (admin) and `AUTH_USER_USERNAME` / `AUTH_USER_PASSWORD` (user).
+This creates topic `legalq-gmail-inbox`, grants Gmail publish permission, and creates a push subscription to `/api/webhooks/gmail`.
 
-## Sheet intake (Apps Script)
+### 2. Workspace domain-wide delegation
 
-Use [`scripts/apps-script-sheet-sync.gs`](scripts/apps-script-sheet-sync.gs) to push new legal rows from your Google Sheet straight to LegalQ — free, runs on your Google account, no Zapier and no Google Cloud billing required.
+A **Google Workspace Super Admin** must authorize **both** scopes for client ID `117053953603379110562`:
 
-1. Open the Sheet → **Extensions → Apps Script**
-2. Paste the contents of `scripts/apps-script-sheet-sync.gs`
-3. Update `CONFIG.WEBHOOK_SECRET` to match `SHEET_WEBHOOK_SECRET` on Railway
-4. Run `setupTrigger` once (Run ▶) and approve the permission prompt
-5. Done — it runs every 5 minutes automatically and syncs any row with `isLegalRequest = TRUE`
+- `https://www.googleapis.com/auth/gmail.send`
+- `https://www.googleapis.com/auth/gmail.readonly`
 
-The script tracks synced rows in a `synced_at` column it adds automatically, and LegalQ also dedupes by `sheetRowId`, so re-runs are safe.
+[Manage Domain Wide Delegation](https://admin.google.com/ac/owl/domainwidedelegation)
 
-## Thread matching
-
-When `OPENAI_API_KEY` is set, LegalQ uses OpenAI to detect when a new Sheet row is a **continuation** of an existing open ticket (same email thread / follow-up) instead of creating a duplicate card.
-
-**Recommended model:** `gpt-5.4-mini` — OpenAI's newest mini model (2026), built for classification, structured JSON, and high-volume tasks. Fast, cheap, and strong at instruction following. Use `reasoning_effort: none` so it skips deep reasoning (this is a simple match/no-match decision, not a complex agent task).
-
-| Model | When to use |
-|-------|-------------|
-| **`gpt-5.4-mini`** (default) | Best choice — newest mini, reliable structured output, low cost |
-| `gpt-4.1-mini` | Older/cheaper fallback if you already use it elsewhere |
-| `gpt-5.4` | Higher accuracy if you see wrong merges — costs more |
-| `gpt-5.5` | Overkill for this; only if quality is still insufficient |
-
-1. Exact dedupe on `sheetRowId` / `externalId` (unchanged)
-2. Load up to 20 open tickets from the same `requesterEmail`
-3. OpenAI compares the new row's title/description against those candidates
-4. If confidence ≥ **0.7**, the row is appended to the matched ticket's Conversation panel
-5. If the matched ticket was **In Review**, it moves back to **In Progress** (stakeholder replied)
-6. If OpenAI is unavailable, the key is unset, or confidence is low → a new ticket is created (safe fallback)
-
-Tune the prompt and threshold in [`lib/ai/threadMatch.ts`](lib/ai/threadMatch.ts).
-
-**Limitation:** matching only considers tickets from the same `requesterEmail`. A reply from a different CC'd participant on the same thread will not match today.
-
-```env
-OPENAI_API_KEY=""          # from platform.openai.com — optional
-OPENAI_MODEL="gpt-5.4-mini"
-```
-
-## Gmail setup
-
-Outbound emails are sent from `legal@prathaminternational.org` via the **Gmail API**.
-
-### Automated GCP setup (gcloud)
-
-From the repo root:
+### 3. Service account
 
 ```bash
 bash scripts/setup-gmail-gcloud.sh
 ```
 
-This enables the Gmail API, creates service account `legalq-gmail-sender`, and saves the JSON key to `.secrets/legalq-gmail-sender.json`.
+Set `GOOGLE_SERVICE_ACCOUNT_JSON` on Railway from `.secrets/legalq-gmail-sender.json`.
 
-Or run the steps manually:
+### 4. Bootstrap watch
+
+After deploy, trigger once:
 
 ```bash
-gcloud config set project legalq-498409
-gcloud services enable gmail.googleapis.com
-gcloud iam service-accounts create legalq-gmail-sender --display-name="LegalQ Gmail Sender"
-gcloud iam service-accounts keys create .secrets/legalq-gmail-sender.json \
-  --iam-account=legalq-gmail-sender@legalq-498409.iam.gserviceaccount.com
+curl -X POST https://legalq-production.up.railway.app/api/cron/gmail-watch \
+  -H "Authorization: Bearer <CRON_SECRET>"
 ```
 
-### One manual step — Workspace domain-wide delegation
+Only **new** emails after watch registration are processed (no historical backfill).
 
-gcloud cannot authorize domain-wide delegation. A **Google Workspace Super Admin** must do this once:
+## Thread matching
 
-1. Open [Manage Domain Wide Delegation](https://admin.google.com/ac/owl/domainwidedelegation)
-2. **Add new**
-3. **Client ID:** `117053953603379110562`
-4. **OAuth scope:** `https://www.googleapis.com/auth/gmail.send`
-5. **Authorize**
+| Priority | Method | When |
+|----------|--------|------|
+| 1 | `gmailThreadId` exact match | Reply in same Gmail thread (e.g. stakeholder answers a question) |
+| 2 | OpenAI `findMatchingTicket` | New thread from same requester, related topic |
+| 3 | New ticket | No match |
 
-### Railway env vars
+When a matched ticket is **In Review**, a stakeholder reply moves it back to **In Progress**.
 
-```env
-GMAIL_SEND_AS=legal@prathaminternational.org
-GMAIL_FROM_NAME=Pratham Legal
-GOOGLE_SERVICE_ACCOUNT_JSON=<paste full contents of .secrets/legalq-gmail-sender.json>
-```
+Tune the AI prompt and threshold in [`lib/ai/threadMatch.ts`](lib/ai/threadMatch.ts).
 
-The service account impersonates `legal@prathaminternational.org` to send mail.
+## Sheet intake (optional fallback)
 
-### Option B — OAuth refresh token (simpler, one mailbox)
-
-1. Create OAuth credentials (Web application) in Google Cloud Console
-2. Authorize the `legal@prathaminternational.org` account once and obtain a refresh token
-3. Set `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REFRESH_TOKEN`, and `GMAIL_SEND_AS`
+Use [`scripts/apps-script-sheet-sync.gs`](scripts/apps-script-sheet-sync.gs) if you still want Sheet-based intake. See the script for setup steps.
 
 ## Local dev
 
@@ -163,7 +112,8 @@ npm run dev
 ## API
 
 - `GET /api/health` — liveness check
-- `GET /api/webhooks/sheet-sync` — webhook info
-- `POST /api/webhooks/sheet-sync` — Sheet intake (Bearer auth, called by Apps Script)
+- `POST /api/webhooks/gmail` — Gmail Pub/Sub push (Google JWT auth)
+- `POST /api/cron/gmail-watch` — renew Gmail watch (Bearer `CRON_SECRET`)
+- `POST /api/webhooks/sheet-sync` — Sheet intake fallback (Bearer auth)
 - `GET /api/tickets` — list tickets (login required)
 - `POST /api/tickets/[id]/transition` — move status (login required)

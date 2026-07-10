@@ -137,3 +137,10 @@ model ProcessedEmail {
   gmailMessageId String   @unique
   processedAt    DateTime @default(now())
 }
+
+model GmailSyncState {
+  id             String    @id @default("default")
+  historyId      String?
+  watchExpiresAt DateTime?
+  updatedAt      DateTime  @updatedAt
+}
