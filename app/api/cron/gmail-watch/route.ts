@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
 import { verifyCronSecret } from "@/lib/api";
-import { renewGmailWatch } from "@/lib/email/gmailSync";
+import { renewGmailWatch, syncGmailInbox } from "@/lib/email/gmailSync";
 
 /**
  * POST /api/cron/gmail-watch
- * Renews Gmail users.watch (expires every ~7 days). Secured with CRON_SECRET.
+ * Renews Gmail users.watch (expires every ~7 days) and syncs any missed inbox messages.
  */
 export async function POST(request: Request) {
   if (!verifyCronSecret(request)) {
@@ -12,10 +12,11 @@ export async function POST(request: Request) {
   }
 
   try {
-    const result = await renewGmailWatch();
-    return NextResponse.json({ ok: true, ...result });
+    const watch = await renewGmailWatch();
+    const sync = await syncGmailInbox();
+    return NextResponse.json({ ok: true, watch, sync });
   } catch (err) {
-    console.error("Gmail watch renewal failed:", err);
-    return NextResponse.json({ error: "Watch renewal failed" }, { status: 500 });
+    console.error("Gmail watch/sync failed:", err);
+    return NextResponse.json({ error: "Watch/sync failed" }, { status: 500 });
   }
 }

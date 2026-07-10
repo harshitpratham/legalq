@@ -1,8 +1,19 @@
 import { createVerify, X509Certificate } from "crypto";
 import { prisma } from "@/lib/db/prisma";
 import { createTicketFromGmail } from "@/lib/tickets/service";
-import { fetchMessage, listHistory, registerWatch } from "@/lib/email/gmail";
+import { fetchMessage, getGmailProfile, listHistory, registerWatch } from "@/lib/email/gmail";
 import { parseGmailMessage, shouldSkipInboundMessage } from "@/lib/email/parse";
+
+const PRODUCTION_PUSH_ENDPOINT =
+  "https://legalq-production.up.railway.app/api/webhooks/gmail";
+
+function getGmailPushAudiences(): string[] {
+  const audiences = new Set<string>([PRODUCTION_PUSH_ENDPOINT]);
+  if (process.env.GMAIL_PUSH_ENDPOINT) {
+    audiences.add(process.env.GMAIL_PUSH_ENDPOINT);
+  }
+  return [...audiences];
+}
 
 const GOOGLE_CERTS_URL = "https://www.googleapis.com/oauth2/v1/certs";
 const WATCH_RENEW_BUFFER_MS = 24 * 60 * 60 * 1000;
@@ -54,10 +65,8 @@ export async function verifyPubSubJwt(authHeader: string | null): Promise<boolea
 
   if (payload.iss !== "https://accounts.google.com") return false;
 
-  const pushEndpoint =
-    process.env.GMAIL_PUSH_ENDPOINT ??
-    `${process.env.NEXTAUTH_URL ?? "https://legalq-production.up.railway.app"}/api/webhooks/gmail`;
-  if (payload.aud !== pushEndpoint) return false;
+  const audiences = getGmailPushAudiences();
+  if (!payload.aud || !audiences.includes(payload.aud)) return false;
 
   if (!payload.exp || payload.exp * 1000 < Date.now()) return false;
   if (!payload.email?.endsWith("@gcp-sa-pubsub.iam.gserviceaccount.com")) return false;
@@ -173,4 +182,13 @@ export async function renewGmailWatch() {
     historyId: watch.historyId,
     watchExpiresAt: watchExpiresAt.toISOString(),
   };
+}
+
+/** Poll Gmail history and process any missed inbound messages (fallback if Pub/Sub push fails). */
+export async function syncGmailInbox() {
+  const profile = await getGmailProfile();
+  if (!profile?.historyId) {
+    return { processed: 0, skipped: 0, error: "profile_fetch_failed" };
+  }
+  return processInboundGmailHistory(profile.historyId);
 }

@@ -333,3 +333,13 @@ export async function registerWatch(): Promise<GmailWatchResult | null> {
 export async function stopWatch(): Promise<void> {
   await gmailFetch("/stop", { method: "POST" });
 }
+
+export async function getGmailProfile(): Promise<{ historyId: string; emailAddress: string } | null> {
+  const res = await gmailFetch("/profile");
+  if (!res.ok) {
+    const errText = await res.text();
+    console.error("getGmailProfile failed:", res.status, errText);
+    return null;
+  }
+  return (await res.json()) as { historyId: string; emailAddress: string };
+}
