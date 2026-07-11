@@ -64,7 +64,7 @@ function stripQuotedReply(body: string): string {
   const cleaned: string[] = [];
 
   for (const line of lines) {
-    if (/^On .+ wrote:$/i.test(line.trim())) break;
+    if (/^On .+wrote:?\s*$/i.test(line.trim())) break;
     if (/^-{2,}\s*Original Message\s*-{2,}$/i.test(line.trim())) break;
     if (/^From:\s*.+$/i.test(line.trim()) && cleaned.length > 0) break;
     if (line.trim().startsWith(">")) continue;

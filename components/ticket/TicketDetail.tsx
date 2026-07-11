@@ -154,16 +154,15 @@ export function TicketDetail({ id }: { id: string }) {
         </div>
       )}
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        <div className="rounded-xl border border-[var(--border)] bg-white p-4">
-          <h2 className="mb-3 font-medium">Conversation</h2>
-          <Thread messages={ticket.messages} />
-        </div>
+      <div className="rounded-xl border border-[var(--border)] bg-white p-4">
+        <h2 className="mb-3 font-medium">Conversation</h2>
+        <Thread messages={ticket.messages} />
         {isAdmin && (
-          <div className="rounded-xl border border-[var(--border)] bg-white p-4">
-            <h2 className="mb-3 font-medium">Add comment</h2>
-            <CommentBox ticketId={id} onSent={fetchTicket} />
-          </div>
+          <CommentBox
+            ticketId={id}
+            requesterEmail={ticket.requesterEmail}
+            onSent={fetchTicket}
+          />
         )}
       </div>
     </div>

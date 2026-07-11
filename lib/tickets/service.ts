@@ -3,7 +3,7 @@ import { prisma } from "@/lib/db/prisma";
 import { findMatchingTicket } from "@/lib/ai/threadMatch";
 import { sendEmail } from "@/lib/email/gmail";
 import type { ParsedInboundEmail } from "@/lib/email/parse";
-import { statusUpdateEmail, ticketCreatedEmail } from "@/lib/email/templates";
+import { statusUpdateEmail, ticketCreatedEmail, agentReplyEmail } from "@/lib/email/templates";
 
 export async function appendStakeholderMessage(params: {
   ticketId: string;
@@ -507,6 +507,29 @@ export async function sendStatusNotification(
   }
 }
 
+export async function sendAgentReply(ticket: Ticket, reply: string) {
+  const { subject, body } = agentReplyEmail(ticket, reply);
+  const headers = await getThreadReplyHeaders(ticket.id);
+
+  try {
+    const sent = await sendEmail({
+      to: ticket.requesterEmail,
+      subject,
+      body,
+      threadId: ticket.gmailThreadId ?? headers.threadId,
+      inReplyTo: headers.inReplyTo,
+      references: headers.inReplyTo,
+    });
+
+    if (sent) {
+      await recordOutboundEmail(ticket, body, sent, "agent_reply");
+    }
+  } catch (err) {
+    console.error("Failed to send agent reply:", err);
+    throw err;
+  }
+}
+
 export async function addComment(params: {
   ticketId: string;
   body: string;
@@ -536,7 +559,7 @@ export async function addComment(params: {
   });
 
   if (params.sendToStakeholder) {
-    await sendStatusNotification(ticket, ticket.status, params.body);
+    await sendAgentReply(ticket, params.body);
   }
 
   return message;

@@ -50,3 +50,25 @@ Subject: ${ticket.title}
     body,
   };
 }
+
+export function agentReplyEmail(
+  ticket: Ticket,
+  reply: string
+): { subject: string; body: string } {
+  const body = `Hello${ticket.requesterName ? ` ${ticket.requesterName}` : ""},
+
+${reply}
+
+Ticket: #${ticket.id.slice(-8)}
+Subject: ${ticket.title}
+
+Please reply to this email if you have more questions.
+
+Thank you,
+${SYSTEM_NAME}`;
+
+  return {
+    subject: `Re: [Legal] ${ticket.title}`,
+    body,
+  };
+}
