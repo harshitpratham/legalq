@@ -1,6 +1,7 @@
 import type { Ticket, TicketStatus, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
 import { findMatchingTicket } from "@/lib/ai/threadMatch";
+import { queueTicketSummary } from "@/lib/ai/summarize";
 import { sendEmail } from "@/lib/email/gmail";
 import type { ParsedInboundEmail } from "@/lib/email/parse";
 import { statusUpdateEmail, ticketCreatedEmail, agentReplyEmail } from "@/lib/email/templates";
@@ -84,6 +85,7 @@ export async function appendStakeholderMessage(params: {
     });
   }
 
+  queueTicketSummary(ticket.id);
   return updated;
 }
 
@@ -192,6 +194,7 @@ export async function createTicketFromGmail(
   });
 
   await sendTicketCreatedEmail(ticket, parsed.rfcMessageId);
+  queueTicketSummary(ticket.id);
 
   await prisma.processedEmail.upsert({
     where: { gmailMessageId: parsed.gmailMessageId },
@@ -306,6 +309,8 @@ export async function createTicketFromSheet(params: {
   if (params.sendWelcomeEmail !== false) {
     await sendTicketCreatedEmail(ticket);
   }
+
+  queueTicketSummary(ticket.id);
 
   if (dedupeId) {
     await prisma.processedEmail.upsert({
@@ -562,5 +567,6 @@ export async function addComment(params: {
     await sendAgentReply(ticket, params.body);
   }
 
+  queueTicketSummary(ticket.id, params.userId);
   return message;
 }

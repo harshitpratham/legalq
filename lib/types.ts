@@ -26,6 +26,22 @@ export const URGENCY_LEVELS: { value: Urgency; label: string }[] = [
   { value: "HIGH", label: "High" },
 ];
 
+export const AUDIT_EVENT_LABELS: Record<AuditEventType, string> = {
+  CREATED: "Created",
+  STATUS_CHANGED: "Status changed",
+  COMMENT_ADDED: "Comment added",
+  EMAIL_SENT: "Email sent",
+  EMAIL_RECEIVED: "Email received",
+  REMINDER_SENT: "Reminder sent",
+  CATEGORY_CHANGED: "Category changed",
+  ASSIGNEE_CHANGED: "Assignee changed",
+  DUE_DATE_CHANGED: "Due date changed",
+  SUMMARY_REFRESHED: "AI summary refreshed",
+  USER_CREATED: "User created",
+  USER_UPDATED: "User updated",
+  USER_DEACTIVATED: "User deactivated",
+};
+
 export type TransitionPayload = {
   status: TicketStatus;
   comment?: string;

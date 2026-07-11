@@ -3,6 +3,13 @@
 import type { Ticket, TicketStatus } from "@prisma/client";
 import { TicketCard } from "./TicketCard";
 
+const headerTint: Record<TicketStatus, string> = {
+  NOT_STARTED: "border-l-slate-400",
+  IN_PROGRESS: "border-l-[var(--primary)]",
+  IN_REVIEW: "border-l-[var(--accent)]",
+  COMPLETE: "border-l-emerald-500",
+};
+
 export function Column({
   title,
   status,
@@ -12,13 +19,16 @@ export function Column({
 }: {
   title: string;
   status: TicketStatus;
-  tickets: (Ticket & { _count?: { messages: number } })[];
+  tickets: (Ticket & {
+    _count?: { messages: number };
+    assignee?: { name: string | null; username: string | null } | null;
+  })[];
   onDrop: (ticketId: string, newStatus: TicketStatus) => void;
   canEdit?: boolean;
 }) {
   return (
     <div
-      className="flex min-h-[400px] flex-1 flex-col rounded-xl border border-[var(--border)] bg-slate-50/80"
+      className={`flex max-h-[calc(100vh-12rem)] flex-1 flex-col rounded-xl border border-[var(--border)] border-l-4 bg-slate-50/80 ${headerTint[status]}`}
       onDragOver={(e) => {
         if (!canEdit) return;
         e.preventDefault();
@@ -37,7 +47,9 @@ export function Column({
     >
       <div className="border-b border-[var(--border)] px-4 py-3">
         <h2 className="font-semibold text-[var(--primary)]">{title}</h2>
-        <span className="text-xs text-[var(--muted)]">{tickets.length} items</span>
+        <span className="inline-flex items-center rounded-full bg-[color-mix(in_srgb,var(--accent)_20%,white)] px-2 py-0.5 text-xs font-medium text-[var(--primary)]">
+          {tickets.length}
+        </span>
       </div>
       <div className="flex flex-1 flex-col gap-2 overflow-y-auto p-3">
         {tickets.map((ticket) => (
@@ -48,7 +60,8 @@ export function Column({
               if (!canEdit) return;
               e.dataTransfer.setData("ticketId", ticket.id);
             }}
-            className={canEdit ? "cursor-grab active:cursor-grabbing" : ""}
+            className={canEdit ? "cursor-grab active:cursor-grabbing" : "cursor-default"}
+            title={canEdit ? undefined : "Admin only"}
           >
             <TicketCard ticket={ticket} />
           </div>

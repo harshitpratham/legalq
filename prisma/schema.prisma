@@ -37,6 +37,11 @@ enum MessageAuthorType {
   STAKEHOLDER
 }
 
+enum UserRole {
+  ADMIN
+  USER
+}
+
 enum AuditEventType {
   CREATED
   STATUS_CHANGED
@@ -45,19 +50,28 @@ enum AuditEventType {
   EMAIL_RECEIVED
   REMINDER_SENT
   CATEGORY_CHANGED
+  ASSIGNEE_CHANGED
+  DUE_DATE_CHANGED
+  SUMMARY_REFRESHED
+  USER_CREATED
+  USER_UPDATED
+  USER_DEACTIVATED
 }
 
 model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  name      String?
-  googleId  String?  @unique
-  image     String?
-  role      String   @default("AGENT")
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id           String   @id @default(cuid())
+  email        String   @unique
+  username     String?  @unique
+  passwordHash String?
+  name         String?
+  googleId     String?  @unique
+  image        String?
+  role         UserRole @default(USER)
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
-  assignedTickets Ticket[] @relation("AssignedTickets")
+  assignedTickets Ticket[]     @relation("AssignedTickets")
   messages        Message[]
   auditEvents     AuditEvent[]
 }
@@ -66,6 +80,8 @@ model Ticket {
   id                      String         @id @default(cuid())
   title                   String
   description             String         @db.Text
+  aiSummary               String?        @db.Text
+  aiSummaryAt             DateTime?
   category                TicketCategory @default(OTHER)
   status                  TicketStatus   @default(NOT_STARTED)
   urgency                 Urgency        @default(MEDIUM)
@@ -77,6 +93,7 @@ model Ticket {
   lastReminderSentAt      DateTime?
   startedAt               DateTime?
   completedAt             DateTime?
+  dueAt                   DateTime?
   assigneeId              String?
   assignee                User?          @relation("AssignedTickets", fields: [assigneeId], references: [id])
   createdAt               DateTime       @default(now())
@@ -89,6 +106,7 @@ model Ticket {
   @@index([status])
   @@index([gmailThreadId])
   @@index([requesterEmail])
+  @@index([dueAt])
 }
 
 model Message {
@@ -121,8 +139,8 @@ model Attachment {
 
 model AuditEvent {
   id        String         @id @default(cuid())
-  ticketId  String
-  ticket    Ticket         @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  ticketId  String?
+  ticket    Ticket?        @relation(fields: [ticketId], references: [id], onDelete: Cascade)
   type      AuditEventType
   payload   Json?
   userId    String?
@@ -130,6 +148,9 @@ model AuditEvent {
   createdAt DateTime       @default(now())
 
   @@index([ticketId])
+  @@index([createdAt])
+  @@index([type])
+  @@index([userId])
 }
 
 model ProcessedEmail {

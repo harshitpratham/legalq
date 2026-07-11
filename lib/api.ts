@@ -1,29 +1,21 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { toDbRole } from "@/lib/auth/users";
+import { fromDbRole } from "@/lib/auth/users";
 
 export async function requireAuth() {
   const session = await getServerSession(authOptions);
-  if (!session?.user?.email) {
+  if (!session?.user?.id || !session.user.email) {
     return { error: NextResponse.json({ error: "Unauthorized" }, { status: 401 }), user: null };
   }
   const { prisma } = await import("@/lib/db/prisma");
-  const user = await prisma.user.upsert({
-    where: { email: session.user.email },
-    update: {
-      name: session.user.name ?? undefined,
-      image: session.user.image ?? undefined,
-      role: toDbRole(session.user.role),
-    },
-    create: {
-      email: session.user.email,
-      name: session.user.name ?? undefined,
-      image: session.user.image ?? undefined,
-      role: toDbRole(session.user.role),
-    },
+  const user = await prisma.user.findFirst({
+    where: { id: session.user.id, active: true },
   });
-  return { error: null, user, role: session.user.role };
+  if (!user) {
+    return { error: NextResponse.json({ error: "Unauthorized" }, { status: 401 }), user: null };
+  }
+  return { error: null, user, role: fromDbRole(user.role) };
 }
 
 export async function requireAdmin() {

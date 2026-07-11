@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { Button } from "@/components/ui/Button";
+import { Textarea } from "@/components/ui/Textarea";
 
 export function CommentBox({
   ticketId,
@@ -14,12 +16,14 @@ export function CommentBox({
   const [comment, setComment] = useState("");
   const [sendToStakeholder, setSendToStakeholder] = useState(true);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!comment.trim()) return;
 
     setLoading(true);
+    setError(null);
     try {
       const res = await fetch(`/api/tickets/${ticketId}/comment`, {
         method: "POST",
@@ -33,7 +37,7 @@ export function CommentBox({
       setComment("");
       onSent();
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Failed to send reply");
+      setError(err instanceof Error ? err.message : "Failed to send reply");
     } finally {
       setLoading(false);
     }
@@ -43,13 +47,13 @@ export function CommentBox({
     <form onSubmit={handleSubmit} className="space-y-3 border-t border-[var(--border)] pt-4">
       <label className="block text-sm font-medium">Reply to requester</label>
       <p className="text-xs text-[var(--muted)]">
-        Your reply appears in the conversation and emails {requesterEmail} when notification is enabled.
+        Your reply appears in the conversation and emails {requesterEmail} when notification is
+        enabled.
       </p>
-      <textarea
+      <Textarea
         value={comment}
         onChange={(e) => setComment(e.target.value)}
         rows={4}
-        className="w-full rounded-lg border border-[var(--border)] p-3 text-sm focus:border-[var(--primary)] focus:outline-none focus:ring-1 focus:ring-[var(--primary)]"
         placeholder="e.g. We are reviewing your NDA extension and will update you by Friday."
       />
       <label className="flex items-center gap-2 text-sm">
@@ -60,13 +64,10 @@ export function CommentBox({
         />
         Send email notification to requester
       </label>
-      <button
-        type="submit"
-        disabled={loading || !comment.trim()}
-        className="rounded-lg bg-[var(--primary)] px-4 py-2 text-sm font-medium text-white hover:bg-[var(--primary-hover)] disabled:opacity-50"
-      >
+      {error && <p className="text-sm text-red-600">{error}</p>}
+      <Button type="submit" disabled={loading || !comment.trim()}>
         {loading ? "Sending..." : sendToStakeholder ? "Reply & notify" : "Reply (internal only)"}
-      </button>
+      </Button>
     </form>
   );
 }
