@@ -284,9 +284,10 @@ export async function listHistory(
 ): Promise<{ history: GmailHistoryRecord[]; historyId?: string } | null> {
   const params = new URLSearchParams({
     startHistoryId,
-    historyTypes: "messageAdded,labelAdded",
     labelId: "INBOX",
   });
+  params.append("historyTypes", "messageAdded");
+  params.append("historyTypes", "labelAdded");
 
   const res = await gmailFetch(`/history?${params.toString()}`);
   if (res.status === 404) {
