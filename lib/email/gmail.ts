@@ -25,6 +25,7 @@ export type GmailHistoryRecord = {
   id: string;
   messages?: { id: string; threadId: string }[];
   messagesAdded?: { message: { id: string; threadId: string } }[];
+  labelsAdded?: { message: { id: string; threadId: string }; labelIds?: string[] }[];
 };
 
 export type GmailWatchResult = {
@@ -283,7 +284,7 @@ export async function listHistory(
 ): Promise<{ history: GmailHistoryRecord[]; historyId?: string } | null> {
   const params = new URLSearchParams({
     startHistoryId,
-    historyTypes: "messageAdded",
+    historyTypes: "messageAdded,labelAdded",
     labelId: "INBOX",
   });
 

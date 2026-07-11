@@ -82,6 +82,56 @@ async function getSyncState() {
   });
 }
 
+function collectInboxMessageIds(history: { messagesAdded?: { message: { id: string } }[]; labelsAdded?: { message: { id: string }; labelIds?: string[] }[] }[]): string[] {
+  const seen = new Set<string>();
+  const ids: string[] = [];
+
+  for (const record of history) {
+    for (const added of record.messagesAdded ?? []) {
+      const id = added.message?.id;
+      if (id && !seen.has(id)) {
+        seen.add(id);
+        ids.push(id);
+      }
+    }
+    for (const labelChange of record.labelsAdded ?? []) {
+      if (!labelChange.labelIds?.includes("INBOX")) continue;
+      const id = labelChange.message?.id;
+      if (id && !seen.has(id)) {
+        seen.add(id);
+        ids.push(id);
+      }
+    }
+  }
+
+  return ids;
+}
+
+async function processGmailMessageId(messageId: string): Promise<"processed" | "skipped"> {
+  const raw = await fetchMessage(messageId);
+  if (!raw) return "skipped";
+
+  if (!raw.labelIds?.includes("INBOX")) {
+    return "skipped";
+  }
+
+  const parsed = parseGmailMessage(raw);
+  if (!parsed) return "skipped";
+
+  const skipReason = shouldSkipInboundMessage(parsed);
+  if (skipReason) {
+    await prisma.processedEmail.upsert({
+      where: { gmailMessageId: parsed.gmailMessageId },
+      create: { gmailMessageId: parsed.gmailMessageId },
+      update: { processedAt: new Date() },
+    });
+    return "skipped";
+  }
+
+  const result = await createTicketFromGmail(parsed);
+  return result.skipped ? "skipped" : "processed";
+}
+
 export async function processInboundGmailHistory(notificationHistoryId: string) {
   const state = await getSyncState();
   const startHistoryId = state.historyId;
@@ -101,44 +151,14 @@ export async function processInboundGmailHistory(notificationHistoryId: string) 
 
   let processed = 0;
   let skipped = 0;
-  const seen = new Set<string>();
 
-  for (const record of historyResult.history) {
-    const additions = record.messagesAdded ?? [];
-    for (const added of additions) {
-      const messageId = added.message.id;
-      if (seen.has(messageId)) continue;
-      seen.add(messageId);
-
-      const raw = await fetchMessage(messageId);
-      if (!raw) {
-        skipped++;
-        continue;
-      }
-
-      const parsed = parseGmailMessage(raw);
-      if (!parsed) {
-        skipped++;
-        continue;
-      }
-
-      const skipReason = shouldSkipInboundMessage(parsed);
-      if (skipReason) {
-        await prisma.processedEmail.upsert({
-          where: { gmailMessageId: parsed.gmailMessageId },
-          create: { gmailMessageId: parsed.gmailMessageId },
-          update: { processedAt: new Date() },
-        });
-        skipped++;
-        continue;
-      }
-
-      const result = await createTicketFromGmail(parsed);
-      if (result.skipped) {
-        skipped++;
-      } else {
-        processed++;
-      }
+  const messageIds = collectInboxMessageIds(historyResult.history);
+  for (const messageId of messageIds) {
+    const outcome = await processGmailMessageId(messageId);
+    if (outcome === "processed") {
+      processed++;
+    } else {
+      skipped++;
     }
   }
 
