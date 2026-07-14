@@ -345,3 +345,19 @@ export async function getGmailProfile(): Promise<{ historyId: string; emailAddre
   }
   return (await res.json()) as { historyId: string; emailAddress: string };
 }
+
+/** Recent INBOX message ids (newest first). Used to catch up when history sync lags. */
+export async function listInboxMessageIds(maxResults = 25): Promise<string[]> {
+  const params = new URLSearchParams({
+    labelIds: "INBOX",
+    maxResults: String(maxResults),
+  });
+  const res = await gmailFetch(`/messages?${params.toString()}`);
+  if (!res.ok) {
+    const errText = await res.text();
+    console.error("listInboxMessageIds failed:", res.status, errText);
+    return [];
+  }
+  const data = (await res.json()) as { messages?: { id: string }[] };
+  return (data.messages ?? []).map((m) => m.id);
+}

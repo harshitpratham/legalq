@@ -12,8 +12,9 @@ export async function POST(request: Request) {
   }
 
   try {
-    const watch = await renewGmailWatch();
+    // Sync first so renew never races ahead of unprocessed inbox mail.
     const sync = await syncGmailInbox();
+    const watch = await renewGmailWatch();
     return NextResponse.json({ ok: true, watch, sync });
   } catch (err) {
     console.error("Gmail watch/sync failed:", err);

@@ -1,7 +1,13 @@
 import { createVerify, X509Certificate } from "crypto";
 import { prisma } from "@/lib/db/prisma";
 import { createTicketFromGmail } from "@/lib/tickets/service";
-import { fetchMessage, getGmailProfile, listHistory, registerWatch } from "@/lib/email/gmail";
+import {
+  fetchMessage,
+  getGmailProfile,
+  listHistory,
+  listInboxMessageIds,
+  registerWatch,
+} from "@/lib/email/gmail";
 import { parseGmailMessage, shouldSkipInboundMessage } from "@/lib/email/parse";
 
 const PRODUCTION_PUSH_ENDPOINT =
@@ -189,19 +195,49 @@ export async function renewGmailWatch() {
 
   const watchExpiresAt = new Date(Number(watch.expiration));
 
+  // Only refresh watch expiry. Do NOT advance historyId here — that skips
+  // unprocessed inbox mail between the old cursor and watch.historyId.
   await prisma.gmailSyncState.update({
     where: { id: "default" },
     data: {
-      historyId: watch.historyId,
       watchExpiresAt,
+      ...(state.historyId ? {} : { historyId: watch.historyId }),
     },
   });
 
   return {
     renewed: true,
-    historyId: watch.historyId,
+    historyId: state.historyId ?? watch.historyId,
     watchExpiresAt: watchExpiresAt.toISOString(),
   };
+}
+
+/**
+ * Process recent INBOX messages that history sync may have missed
+ * (expired historyId, failed Pub/Sub, or watch renew cursor jumps).
+ */
+export async function catchUpInboxMessages(maxResults = 25) {
+  const ids = await listInboxMessageIds(maxResults);
+  let processed = 0;
+  let skipped = 0;
+
+  for (const messageId of ids) {
+    const already = await prisma.processedEmail.findUnique({
+      where: { gmailMessageId: messageId },
+    });
+    if (already) {
+      skipped++;
+      continue;
+    }
+    const outcome = await processGmailMessageId(messageId);
+    if (outcome === "processed") {
+      processed++;
+    } else {
+      skipped++;
+    }
+  }
+
+  return { processed, skipped, scanned: ids.length };
 }
 
 /** Poll Gmail history and process any missed inbound messages (fallback if Pub/Sub push fails). */
@@ -210,5 +246,14 @@ export async function syncGmailInbox() {
   if (!profile?.historyId) {
     return { processed: 0, skipped: 0, error: "profile_fetch_failed" };
   }
-  return processInboundGmailHistory(profile.historyId);
+
+  const history = await processInboundGmailHistory(profile.historyId);
+  const catchUp = await catchUpInboxMessages();
+
+  return {
+    ...history,
+    processed: (history.processed ?? 0) + catchUp.processed,
+    skipped: (history.skipped ?? 0) + catchUp.skipped,
+    catchUp,
+  };
 }
