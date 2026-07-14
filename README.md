@@ -2,6 +2,12 @@
 
 Kanban legal request tracker. Inbound legal email arrives at `legal@prathaminternational.org`, is pushed to LegalQ via **Gmail Pub/Sub**, and mapped to tickets on a Kanban board. The legal team manages requests; status changes and comments email requesters via **Gmail** in the same thread.
 
+## Documentation
+
+- **Admin operations manual** (login steps, screenshots, requester email flow): `.secrets/ADMIN-MANUAL.md`  
+  This file is **gitignored** (includes credentials and screenshots). Ask your IT/admin contact for a copy if you do not have the local `.secrets/` folder.
+- QA / tester checklist: `.secrets/MANUAL-TESTING.md` (also gitignored)
+
 ## Flow
 
 ```

@@ -7,6 +7,7 @@
  *
  * SETUP:
  *   1. Open the Sheet → Extensions → Apps Script
+ *      https://docs.google.com/spreadsheets/d/1XvagyD82N5Q4QUK9VddExhnjWBs3BHmFdTk44lv_er8/edit
  *   2. Delete any placeholder code, paste this whole file
  *   3. Update the CONFIG block below
  *   4. Run `setupTrigger` once from the editor (Run ▶ button) and
@@ -21,11 +22,20 @@
  */
 
 const CONFIG = {
+  SPREADSHEET_ID: "1XvagyD82N5Q4QUK9VddExhnjWBs3BHmFdTk44lv_er8",
   WEBHOOK_URL: "https://legalq-production.up.railway.app/api/webhooks/sheet-sync",
   WEBHOOK_SECRET: "glHuje2N0Og5ehBbITvjSIJtSNaDSddg9mQKs2N7", // must match SHEET_WEBHOOK_SECRET on Railway
   SHEET_NAME: "", // leave blank to use the first sheet/tab
   SYNCED_COLUMN_NAME: "synced_at",
 };
+
+function getSpreadsheet() {
+  const active = SpreadsheetApp.getActiveSpreadsheet();
+  if (active && active.getId() === CONFIG.SPREADSHEET_ID) {
+    return active;
+  }
+  return SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+}
 
 function setupTrigger() {
   // Remove existing triggers for this function to avoid duplicates
@@ -47,9 +57,10 @@ function setupTrigger() {
 }
 
 function syncLegalRows() {
+  const spreadsheet = getSpreadsheet();
   const sheet = CONFIG.SHEET_NAME
-    ? SpreadsheetApp.getActiveSpreadsheet().getSheetByName(CONFIG.SHEET_NAME)
-    : SpreadsheetApp.getActiveSpreadsheet().getSheets()[0];
+    ? spreadsheet.getSheetByName(CONFIG.SHEET_NAME)
+    : spreadsheet.getSheets()[0];
 
   if (!sheet) {
     Logger.log("Sheet not found: " + CONFIG.SHEET_NAME);
