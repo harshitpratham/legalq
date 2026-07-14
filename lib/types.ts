@@ -37,6 +37,8 @@ export const AUDIT_EVENT_LABELS: Record<AuditEventType, string> = {
   ASSIGNEE_CHANGED: "Assignee changed",
   DUE_DATE_CHANGED: "Due date changed",
   SUMMARY_REFRESHED: "AI summary refreshed",
+  ARCHIVED: "Archived",
+  UNARCHIVED: "Unarchived",
   USER_CREATED: "User created",
   USER_UPDATED: "User updated",
   USER_DEACTIVATED: "User deactivated",

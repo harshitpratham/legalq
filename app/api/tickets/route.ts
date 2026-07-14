@@ -14,8 +14,16 @@ export async function GET(request: Request) {
   const category = url.searchParams.get("category");
   const assigneeId = url.searchParams.get("assigneeId");
   const stale = url.searchParams.get("stale") === "1";
+  // archived: omit/active = non-archived (default), "1" = archived only, "all" = both
+  const archived = url.searchParams.get("archived");
 
   const where: Prisma.TicketWhereInput = {};
+  if (archived === "1") {
+    where.archivedAt = { not: null };
+  } else if (archived !== "all") {
+    where.archivedAt = null;
+  }
+
   if (status) where.status = status as Prisma.EnumTicketStatusFilter["equals"];
   if (urgency) where.urgency = urgency as Prisma.EnumUrgencyFilter["equals"];
   if (category) where.category = category as Prisma.EnumTicketCategoryFilter["equals"];

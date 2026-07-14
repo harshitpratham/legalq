@@ -43,12 +43,20 @@ export async function PATCH(
 
   const { id } = await params;
   const body = await request.json();
-  const { title, description, category, urgency, assigneeId, dueAt } = body;
+  const { title, description, category, urgency, assigneeId, dueAt, archived } = body;
 
   const existing = await prisma.ticket.findUnique({ where: { id } });
   if (!existing) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
+
+  const archiveChanging = archived !== undefined;
+  const nextArchivedAt =
+    archived === true
+      ? existing.archivedAt ?? new Date()
+      : archived === false
+        ? null
+        : existing.archivedAt;
 
   const ticket = await prisma.ticket.update({
     where: { id },
@@ -59,11 +67,26 @@ export async function PATCH(
       ...(urgency !== undefined && { urgency }),
       ...(assigneeId !== undefined && { assigneeId: assigneeId || null }),
       ...(dueAt !== undefined && { dueAt: dueAt ? new Date(dueAt) : null }),
+      ...(archiveChanging && { archivedAt: nextArchivedAt }),
     },
     include: {
       assignee: { select: { id: true, name: true, email: true, username: true } },
     },
   });
+
+  if (archiveChanging) {
+    const wasArchived = existing.archivedAt != null;
+    const nowArchived = nextArchivedAt != null;
+    if (wasArchived !== nowArchived) {
+      await prisma.auditEvent.create({
+        data: {
+          ticketId: id,
+          type: nowArchived ? "ARCHIVED" : "UNARCHIVED",
+          userId: user!.id,
+        },
+      });
+    }
+  }
 
   if (category !== undefined && category !== existing.category) {
     await prisma.auditEvent.create({

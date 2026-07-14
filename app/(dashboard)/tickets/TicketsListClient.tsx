@@ -27,6 +27,13 @@ export default function TicketsListPage() {
   const [category, setCategory] = useState("");
   const [assigneeId, setAssigneeId] = useState("");
   const [stale, setStale] = useState(searchParams.get("stale") === "1");
+  const [archivedFilter, setArchivedFilter] = useState<"active" | "archived" | "all">(
+    searchParams.get("archived") === "1"
+      ? "archived"
+      : searchParams.get("archived") === "all"
+        ? "all"
+        : "active"
+  );
   const [loading, setLoading] = useState(true);
   const [sort, setSort] = useState<"created" | "age" | "urgency">("urgency");
 
@@ -39,6 +46,8 @@ export default function TicketsListPage() {
     if (category) params.set("category", category);
     if (assigneeId) params.set("assigneeId", assigneeId);
     if (stale) params.set("stale", "1");
+    if (archivedFilter === "archived") params.set("archived", "1");
+    else if (archivedFilter === "all") params.set("archived", "all");
 
     const res = await fetch(`/api/tickets?${params}`);
     if (res.ok) {
@@ -50,7 +59,7 @@ export default function TicketsListPage() {
       setTickets(list);
     }
     setLoading(false);
-  }, [q, status, urgency, category, assigneeId, stale]);
+  }, [q, status, urgency, category, assigneeId, stale, archivedFilter]);
 
   useEffect(() => {
     load();
@@ -150,6 +159,15 @@ export default function TicketsListPage() {
             Stale 7d+
           </label>
           <select
+            value={archivedFilter}
+            onChange={(e) => setArchivedFilter(e.target.value as typeof archivedFilter)}
+            className="rounded-lg border border-[var(--border)] px-3 py-2 text-sm"
+          >
+            <option value="active">Active only</option>
+            <option value="archived">Archived only</option>
+            <option value="all">Active + archived</option>
+          </select>
+          <select
             value={sort}
             onChange={(e) => setSort(e.target.value as typeof sort)}
             className="rounded-lg border border-[var(--border)] px-3 py-2 text-sm"
@@ -195,9 +213,12 @@ export default function TicketsListPage() {
                       )}
                     </td>
                     <td className="py-2.5 pr-3">
-                      <Badge>
-                        {TICKET_STATUSES.find((s) => s.value === t.status)?.label ?? t.status}
-                      </Badge>
+                      <div className="flex flex-wrap items-center gap-1">
+                        <Badge>
+                          {TICKET_STATUSES.find((s) => s.value === t.status)?.label ?? t.status}
+                        </Badge>
+                        {t.archivedAt && <Badge>Archived</Badge>}
+                      </div>
                     </td>
                     <td className="py-2.5 pr-3">
                       {t.urgency === "HIGH" ? <Badge variant="urgent">High</Badge> : t.urgency}

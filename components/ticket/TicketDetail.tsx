@@ -41,6 +41,7 @@ export function TicketDetail({ id }: { id: string }) {
   const [summaryLoading, setSummaryLoading] = useState(false);
   const [assigneeId, setAssigneeId] = useState("");
   const [dueAt, setDueAt] = useState("");
+  const [archiveLoading, setArchiveLoading] = useState(false);
 
   const fetchTicket = useCallback(async () => {
     const res = await fetch(`/api/tickets/${id}`);
@@ -125,6 +126,24 @@ export function TicketDetail({ id }: { id: string }) {
     fetchTicket();
   };
 
+  const toggleArchive = async () => {
+    if (!ticket) return;
+    setArchiveLoading(true);
+    setError(null);
+    const res = await fetch(`/api/tickets/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ archived: !ticket.archivedAt }),
+    });
+    setArchiveLoading(false);
+    if (!res.ok) {
+      const data = await res.json();
+      setError(data.error ?? "Failed to update archive");
+      return;
+    }
+    fetchTicket();
+  };
+
   if (loading) {
     return <p className="text-[var(--muted)]">Loading...</p>;
   }
@@ -162,6 +181,14 @@ export function TicketDetail({ id }: { id: string }) {
         </p>
       </div>
 
+      {ticket.archivedAt && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          This ticket is archived
+          {format(new Date(ticket.archivedAt), " · MMM d, yyyy")}. It is hidden from the board and
+          default ticket lists.
+        </div>
+      )}
+
       {error && (
         <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
           {error}
@@ -174,6 +201,7 @@ export function TicketDetail({ id }: { id: string }) {
         <Badge>
           {TICKET_STATUSES.find((s) => s.value === ticket.status)?.label ?? ticket.status}
         </Badge>
+        {ticket.archivedAt && <Badge>Archived</Badge>}
         {ticket.dueAt && new Date(ticket.dueAt) < new Date() && ticket.status !== "COMPLETE" && (
           <Badge variant="urgent">Past due</Badge>
         )}
@@ -342,6 +370,27 @@ export function TicketDetail({ id }: { id: string }) {
                     </button>
                   ))}
                 </div>
+              </Card>
+
+              <Card title="Archive">
+                <p className="mb-3 text-sm text-[var(--muted)]">
+                  {ticket.archivedAt
+                    ? "Restore this ticket to the board and active lists."
+                    : "Hide from the board and default lists. Status is preserved."}
+                </p>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="secondary"
+                  disabled={archiveLoading}
+                  onClick={toggleArchive}
+                >
+                  {archiveLoading
+                    ? "Saving..."
+                    : ticket.archivedAt
+                      ? "Unarchive"
+                      : "Archive"}
+                </Button>
               </Card>
             </>
           ) : (

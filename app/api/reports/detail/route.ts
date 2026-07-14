@@ -42,7 +42,7 @@ export async function GET(request: Request) {
       },
     }),
     prisma.ticket.findMany({
-      where: { status: { not: "COMPLETE" } },
+      where: { status: { not: "COMPLETE" }, archivedAt: null },
       select: {
         createdAt: true,
         dueAt: true,

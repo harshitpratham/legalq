@@ -25,6 +25,7 @@ export async function findMatchingTicket(params: {
     where: {
       requesterEmail: { equals: params.requesterEmail, mode: "insensitive" },
       status: { not: "COMPLETE" },
+      archivedAt: null,
     },
     orderBy: { createdAt: "desc" },
     take: MAX_CANDIDATES,

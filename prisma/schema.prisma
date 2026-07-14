@@ -53,6 +53,8 @@ enum AuditEventType {
   ASSIGNEE_CHANGED
   DUE_DATE_CHANGED
   SUMMARY_REFRESHED
+  ARCHIVED
+  UNARCHIVED
   USER_CREATED
   USER_UPDATED
   USER_DEACTIVATED
@@ -94,6 +96,7 @@ model Ticket {
   startedAt               DateTime?
   completedAt             DateTime?
   dueAt                   DateTime?
+  archivedAt              DateTime?
   assigneeId              String?
   assignee                User?          @relation("AssignedTickets", fields: [assigneeId], references: [id])
   createdAt               DateTime       @default(now())
@@ -107,6 +110,7 @@ model Ticket {
   @@index([gmailThreadId])
   @@index([requesterEmail])
   @@index([dueAt])
+  @@index([archivedAt])
 }
 
 model Message {

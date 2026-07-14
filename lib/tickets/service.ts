@@ -110,6 +110,7 @@ export async function createTicketFromGmail(
     where: {
       gmailThreadId: parsed.gmailThreadId,
       status: { not: "COMPLETE" },
+      archivedAt: null,
     },
     orderBy: { updatedAt: "desc" },
   });

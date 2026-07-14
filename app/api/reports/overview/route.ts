@@ -29,24 +29,25 @@ export async function GET() {
     recentActivity,
     assignees,
   ] = await Promise.all([
-    prisma.ticket.count({ where: { status: { not: "COMPLETE" } } }),
-    prisma.ticket.count({ where: { status: { not: "COMPLETE" }, urgency: "HIGH" } }),
-    prisma.ticket.count({ where: { createdAt: { gte: weekStart } } }),
+    prisma.ticket.count({ where: { status: { not: "COMPLETE" }, archivedAt: null } }),
+    prisma.ticket.count({ where: { status: { not: "COMPLETE" }, urgency: "HIGH", archivedAt: null } }),
+    prisma.ticket.count({ where: { createdAt: { gte: weekStart }, archivedAt: null } }),
     prisma.ticket.count({
-      where: { status: "COMPLETE", completedAt: { gte: weekStart } },
+      where: { status: "COMPLETE", completedAt: { gte: weekStart }, archivedAt: null },
     }),
     prisma.ticket.findMany({
       where: {
         status: "COMPLETE",
         completedAt: { gte: thirtyDaysAgo, not: null },
+        archivedAt: null,
       },
       select: { createdAt: true, completedAt: true },
     }),
-    prisma.ticket.groupBy({ by: ["status"], _count: true }),
-    prisma.ticket.groupBy({ by: ["category"], _count: true }),
-    prisma.ticket.groupBy({ by: ["urgency"], _count: true }),
+    prisma.ticket.groupBy({ by: ["status"], where: { archivedAt: null }, _count: true }),
+    prisma.ticket.groupBy({ by: ["category"], where: { archivedAt: null }, _count: true }),
+    prisma.ticket.groupBy({ by: ["urgency"], where: { archivedAt: null }, _count: true }),
     prisma.ticket.findMany({
-      where: { status: { not: "COMPLETE" } },
+      where: { status: { not: "COMPLETE" }, archivedAt: null },
       select: {
         id: true,
         title: true,
@@ -78,7 +79,11 @@ export async function GET() {
         id: true,
         name: true,
         username: true,
-        _count: { select: { assignedTickets: { where: { status: { not: "COMPLETE" } } } } },
+        _count: {
+          select: {
+            assignedTickets: { where: { status: { not: "COMPLETE" }, archivedAt: null } },
+          },
+        },
       },
     }),
   ]);
