@@ -37,12 +37,23 @@ export const AUDIT_EVENT_LABELS: Record<AuditEventType, string> = {
   ASSIGNEE_CHANGED: "Assignee changed",
   DUE_DATE_CHANGED: "Due date changed",
   SUMMARY_REFRESHED: "AI summary refreshed",
-  ARCHIVED: "Archived",
-  UNARCHIVED: "Unarchived",
   USER_CREATED: "User created",
   USER_UPDATED: "User updated",
   USER_DEACTIVATED: "User deactivated",
 };
+
+/** Human label for an audit row (handles archive events stored as COMMENT_ADDED). */
+export function auditEventLabel(
+  type: AuditEventType,
+  payload?: unknown
+): string {
+  if (type === "COMMENT_ADDED" && payload && typeof payload === "object") {
+    const action = (payload as { action?: string }).action;
+    if (action === "ARCHIVED") return "Archived";
+    if (action === "UNARCHIVED") return "Unarchived";
+  }
+  return AUDIT_EVENT_LABELS[type] ?? type;
+}
 
 export type TransitionPayload = {
   status: TicketStatus;

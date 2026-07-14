@@ -1,9 +1,5 @@
--- AlterEnum
-ALTER TYPE "AuditEventType" ADD VALUE 'ARCHIVED';
-ALTER TYPE "AuditEventType" ADD VALUE 'UNARCHIVED';
-
 -- AlterTable
-ALTER TABLE "Ticket" ADD COLUMN "archivedAt" TIMESTAMP(3);
+ALTER TABLE "Ticket" ADD COLUMN IF NOT EXISTS "archivedAt" TIMESTAMP(3);
 
 -- CreateIndex
-CREATE INDEX "Ticket_archivedAt_idx" ON "Ticket"("archivedAt");
+CREATE INDEX IF NOT EXISTS "Ticket_archivedAt_idx" ON "Ticket"("archivedAt");

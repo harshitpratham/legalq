@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import type { Ticket, TicketStatus, Message, User, Attachment, AuditEvent } from "@prisma/client";
-import { AUDIT_EVENT_LABELS, TICKET_CATEGORIES, TICKET_STATUSES, URGENCY_LEVELS } from "@/lib/types";
+import { TICKET_CATEGORIES, TICKET_STATUSES, URGENCY_LEVELS, auditEventLabel } from "@/lib/types";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -271,7 +271,7 @@ export function TicketDetail({ id }: { id: string }) {
                     <span className="text-[var(--muted)]">
                       {format(new Date(e.createdAt), "MMM d, HH:mm")}
                     </span>{" "}
-                    <Badge>{AUDIT_EVENT_LABELS[e.type] ?? e.type}</Badge>
+                    <Badge>{auditEventLabel(e.type, e.payload)}</Badge>
                     {e.user?.name && (
                       <span className="text-[var(--muted)]"> · {e.user.name}</span>
                     )}

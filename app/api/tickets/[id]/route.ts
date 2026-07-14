@@ -81,8 +81,9 @@ export async function PATCH(
       await prisma.auditEvent.create({
         data: {
           ticketId: id,
-          type: nowArchived ? "ARCHIVED" : "UNARCHIVED",
+          type: "COMMENT_ADDED",
           userId: user!.id,
+          payload: { action: nowArchived ? "ARCHIVED" : "UNARCHIVED" },
         },
       });
     }
