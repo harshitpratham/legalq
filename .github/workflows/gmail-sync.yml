@@ -1,0 +1,44 @@
+name: Gmail sync backup
+
+# Belt-and-braces: hit LegalQ cron endpoints on a schedule so inbox mail
+# still becomes tickets if the in-app poller or Pub/Sub push is down.
+# Requires repo secret CRON_SECRET (same value as Railway CRON_SECRET).
+
+on:
+  schedule:
+    # Every 10 minutes
+    - cron: "*/10 * * * *"
+    # Daily watch renew (UTC midnight) — gmail-watch also syncs inbox
+    - cron: "0 0 * * *"
+  workflow_dispatch:
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Sync Gmail inbox
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          APP_URL: https://legalq-production.up.railway.app
+        run: |
+          set -euo pipefail
+          if [ -z "${CRON_SECRET:-}" ]; then
+            echo "CRON_SECRET secret is not set" >&2
+            exit 1
+          fi
+
+          echo "POST /api/cron/gmail-sync"
+          curl -sS -f -X POST "$APP_URL/api/cron/gmail-sync" \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            -H "Content-Type: application/json" \
+            -w "\nHTTP %{http_code}\n"
+
+          # Daily schedule (or manual runs): also renew the Gmail watch
+          if [ "${{ github.event.schedule }}" = "0 0 * * *" ] || [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "POST /api/cron/gmail-watch"
+            curl -sS -f -X POST "$APP_URL/api/cron/gmail-watch" \
+              -H "Authorization: Bearer $CRON_SECRET" \
+              -H "Content-Type: application/json" \
+              -w "\nHTTP %{http_code}\n"
+          fi
