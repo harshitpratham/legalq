@@ -31,5 +31,6 @@ export const config = {
     "/api/users/:path*",
     "/api/audit/:path*",
     "/api/reports/:path*",
+    "/api/admin/:path*",
   ],
 };

@@ -17,7 +17,12 @@ type TicketRow = Ticket & {
 
 type UserOpt = { id: string; name: string | null; username: string | null };
 
-export default function TicketsListPage() {
+type TicketsListProps = {
+  variant?: "default" | "archived";
+};
+
+export default function TicketsListPage({ variant = "default" }: TicketsListProps) {
+  const isArchivedView = variant === "archived";
   const searchParams = useSearchParams();
   const [tickets, setTickets] = useState<TicketRow[]>([]);
   const [users, setUsers] = useState<UserOpt[]>([]);
@@ -28,11 +33,13 @@ export default function TicketsListPage() {
   const [assigneeId, setAssigneeId] = useState("");
   const [stale, setStale] = useState(searchParams.get("stale") === "1");
   const [archivedFilter, setArchivedFilter] = useState<"active" | "archived" | "all">(
-    searchParams.get("archived") === "1"
+    isArchivedView
       ? "archived"
-      : searchParams.get("archived") === "all"
-        ? "all"
-        : "active"
+      : searchParams.get("archived") === "1"
+        ? "archived"
+        : searchParams.get("archived") === "all"
+          ? "all"
+          : "active"
   );
   const [loading, setLoading] = useState(true);
   const [sort, setSort] = useState<"created" | "age" | "urgency">("urgency");
@@ -92,8 +99,21 @@ export default function TicketsListPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold text-[var(--primary)]">Tickets</h1>
-        <p className="text-sm text-[var(--muted)]">Searchable queue view</p>
+        <h1 className="text-2xl font-semibold text-[var(--primary)]">
+          {isArchivedView ? "Archived tickets" : "Tickets"}
+        </h1>
+        <p className="text-sm text-[var(--muted)]">
+          {isArchivedView ? (
+            <>
+              Hidden from the board and default lists.{" "}
+              <Link href="/tickets" className="text-[var(--primary)] hover:underline">
+                View active tickets
+              </Link>
+            </>
+          ) : (
+            "Searchable queue view"
+          )}
+        </p>
       </div>
 
       <Card>
@@ -158,15 +178,17 @@ export default function TicketsListPage() {
             <input type="checkbox" checked={stale} onChange={(e) => setStale(e.target.checked)} />
             Stale 7d+
           </label>
-          <select
-            value={archivedFilter}
-            onChange={(e) => setArchivedFilter(e.target.value as typeof archivedFilter)}
-            className="rounded-lg border border-[var(--border)] px-3 py-2 text-sm"
-          >
-            <option value="active">Active only</option>
-            <option value="archived">Archived only</option>
-            <option value="all">Active + archived</option>
-          </select>
+          {!isArchivedView && (
+            <select
+              value={archivedFilter}
+              onChange={(e) => setArchivedFilter(e.target.value as typeof archivedFilter)}
+              className="rounded-lg border border-[var(--border)] px-3 py-2 text-sm"
+            >
+              <option value="active">Active only</option>
+              <option value="archived">Archived only</option>
+              <option value="all">Active + archived</option>
+            </select>
+          )}
           <select
             value={sort}
             onChange={(e) => setSort(e.target.value as typeof sort)}
@@ -239,7 +261,7 @@ export default function TicketsListPage() {
                 {sorted.length === 0 && (
                   <tr>
                     <td colSpan={7} className="py-8 text-center text-[var(--muted)]">
-                      No tickets match
+                      {isArchivedView ? "No archived tickets" : "No tickets match"}
                     </td>
                   </tr>
                 )}
